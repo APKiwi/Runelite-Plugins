@@ -21,6 +21,8 @@ public interface MlmQolConfig extends Config
 	String BABY_MOLE_NAME_COLOR = "babyMoleNameColor";
 	String STOPPED_HOPPER_COLOR = "stoppedHopperColor";
 	String ORE_IN_TRANSIT_COLOR = "oreInTransitColor";
+	String PLAY_WAKE_UP_SOUND = "playWakeUpSound";
+	String WAKE_UP_SOUND_VOLUME = "wakeUpSoundVolume";
 
 	@ConfigSection(
 		name = "Sack",
@@ -37,9 +39,16 @@ public interface MlmQolConfig extends Config
 	String HOPPER_SECTION = "hopper";
 
 	@ConfigSection(
+		name = "Sound notifications",
+		description = "Sounds that play when something in the mine is worth knowing about",
+		position = 2
+	)
+	String SOUND_NOTIFICATIONS_SECTION = "soundNotifications";
+
+	@ConfigSection(
 		name = "Baby mole",
 		description = "Name the baby mole while you're in the mine",
-		position = 2
+		position = 3
 	)
 	String BABY_MOLE_SECTION = "babyMole";
 
@@ -130,6 +139,31 @@ public interface MlmQolConfig extends Config
 	default Color oreInTransitColor()
 	{
 		return new Color(255, 152, 31, 180);
+	}
+
+	@ConfigItem(
+		keyName = PLAY_WAKE_UP_SOUND,
+		name = "Play wake up sound",
+		description = "Plays a sound whenever you stop mining in the Motherlode Mine",
+		position = 1,
+		section = SOUND_NOTIFICATIONS_SECTION
+	)
+	default boolean playWakeUpSound()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = WAKE_UP_SOUND_VOLUME,
+		name = "Wake up volume",
+		description = "How loud the wake up sound plays, from 1 to 100. At 0 nothing plays.",
+		position = 2,
+		section = SOUND_NOTIFICATIONS_SECTION
+	)
+	@Range(max = 100)
+	default int wakeUpSoundVolume()
+	{
+		return 100;
 	}
 
 	@ConfigItem(

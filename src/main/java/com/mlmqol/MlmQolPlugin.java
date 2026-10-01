@@ -15,9 +15,11 @@ import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.WorldView;
+import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.DecorativeObjectDespawned;
 import net.runelite.api.events.DecorativeObjectSpawned;
 import net.runelite.api.events.GameObjectDespawned;
@@ -28,6 +30,7 @@ import net.runelite.api.events.GroundObjectSpawned;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuEntryAdded;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.events.VarbitChanged;
@@ -54,7 +57,7 @@ import net.runelite.client.util.Text;
 @PluginDescriptor(
 		name = "MLM QOL",
 		description = "Quality of life for the Motherlode Mine: stop mining when the sack is full, and flag a stopped hopper",
-		tags = {"motherlode", "mlm", "mining", "sack", "pay", "dirt", "skilling"},
+		tags = {"motherlode", "mlm", "mining", "sack", "pay", "dirt", "skilling", "sound", "afk", "idle"},
 		configName = "MlmQolPlugin"
 )
 public class MlmQolPlugin extends Plugin
@@ -67,6 +70,29 @@ public class MlmQolPlugin extends Plugin
 	private static final Set<MenuAction> OBJECT_OPTIONS = ImmutableSet.of(MenuAction.GAME_OBJECT_FIRST_OPTION,
 		MenuAction.GAME_OBJECT_SECOND_OPTION, MenuAction.GAME_OBJECT_THIRD_OPTION, MenuAction.GAME_OBJECT_FOURTH_OPTION,
 		MenuAction.GAME_OBJECT_FIFTH_OPTION);
+	/**
+	 * Clicks that send the player off to do something else, and so stop mining on purpose: walking,
+	 * and interacting with an object, NPC, ground item or player. Interface clicks are deliberately
+	 * absent — eating, dropping or switching tabs doesn't stop you mining — and so are Examine and
+	 * Cancel, which send nothing at all. Using an inventory item on something in the world arrives as
+	 * the WIDGET_TARGET_ON_* action; the ITEM_USE_ON_* pairs are deprecated and no longer produced.
+	 */
+	private static final Set<MenuAction> MANUAL_STOP_ACTIONS = ImmutableSet.<MenuAction>builder()
+		.addAll(OBJECT_OPTIONS)
+		.add(MenuAction.WALK)
+		.add(MenuAction.WIDGET_TARGET_ON_GAME_OBJECT)
+		.add(MenuAction.NPC_FIRST_OPTION, MenuAction.NPC_SECOND_OPTION, MenuAction.NPC_THIRD_OPTION,
+			MenuAction.NPC_FOURTH_OPTION, MenuAction.NPC_FIFTH_OPTION)
+		.add(MenuAction.WIDGET_TARGET_ON_NPC)
+		.add(MenuAction.GROUND_ITEM_FIRST_OPTION, MenuAction.GROUND_ITEM_SECOND_OPTION,
+			MenuAction.GROUND_ITEM_THIRD_OPTION, MenuAction.GROUND_ITEM_FOURTH_OPTION,
+			MenuAction.GROUND_ITEM_FIFTH_OPTION)
+		.add(MenuAction.WIDGET_TARGET_ON_GROUND_ITEM)
+		.add(MenuAction.PLAYER_FIRST_OPTION, MenuAction.PLAYER_SECOND_OPTION, MenuAction.PLAYER_THIRD_OPTION,
+			MenuAction.PLAYER_FOURTH_OPTION, MenuAction.PLAYER_FIFTH_OPTION, MenuAction.PLAYER_SIXTH_OPTION,
+			MenuAction.PLAYER_SEVENTH_OPTION, MenuAction.PLAYER_EIGHTH_OPTION)
+		.add(MenuAction.WIDGET_TARGET_ON_PLAYER)
+		.build();
 	/**
 	 * The baby mole pet, plus the baby mole NPCs that share its look. Only ever matched while in the
 	 * mine, so a pet being renamed anywhere else is not possible.
@@ -103,7 +129,11 @@ public class MlmQolPlugin extends Plugin
 	@Inject
 	private MlmQolConfig config;
 
+	@Inject
+	private WakeUpSound wakeUpSound;
+
 	private final SackTracker sackTracker = new SackTracker();
+	private final MiningIdleTracker miningIdleTracker = new MiningIdleTracker();
 
 	@Getter(AccessLevel.PACKAGE)
 	private final Set<TileObject> hoppers = new HashSet<>();
@@ -128,6 +158,7 @@ public class MlmQolPlugin extends Plugin
 	{
 		overlayManager.add(hopperOverlay);
 		overlayManager.add(babyMoleOverlay);
+		wakeUpSound.start();
 
 		clientThread.invokeLater(() ->
 		{
@@ -154,9 +185,11 @@ public class MlmQolPlugin extends Plugin
 	{
 		overlayManager.remove(hopperOverlay);
 		overlayManager.remove(babyMoleOverlay);
+		wakeUpSound.shutDown();
 		inMlm = false;
 		sackFull = false;
 		sackTracker.reset();
+		miningIdleTracker.reset();
 		clearSceneObjects();
 	}
 
@@ -168,6 +201,8 @@ public class MlmQolPlugin extends Plugin
 		{
 			// On region changes the tracked objects get set to null.
 			clearSceneObjects();
+			// A swing left half-finished by the hop out must not alert on arrival.
+			miningIdleTracker.reset();
 
 			boolean wasInMlm = inMlm;
 			inMlm = checkInMlm();
@@ -191,6 +226,7 @@ public class MlmQolPlugin extends Plugin
 			inMlm = false;
 			sackFull = false;
 			sackTracker.reset();
+			miningIdleTracker.reset();
 			clearSceneObjects();
 		}
 	}
@@ -259,6 +295,27 @@ public class MlmQolPlugin extends Plugin
 	public void onNpcDespawned(NpcDespawned event)
 	{
 		babyMoles.remove(event.getNpc());
+	}
+
+	@Subscribe
+	public void onAnimationChanged(AnimationChanged event)
+	{
+		if (!inMlm || event.getActor() != client.getLocalPlayer())
+		{
+			return;
+		}
+
+		miningIdleTracker.onAnimationChanged(event.getActor().getAnimation());
+	}
+
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked event)
+	{
+		// Stopping on purpose is not worth an alert, so a click elsewhere drops the swing being watched.
+		if (inMlm && MANUAL_STOP_ACTIONS.contains(event.getMenuAction()))
+		{
+			miningIdleTracker.onManualStop();
+		}
 	}
 
 	private void trackObject(TileObject object)
@@ -405,6 +462,7 @@ public class MlmQolPlugin extends Plugin
 		}
 
 		updateSackFull();
+		checkMiningStopped();
 	}
 
 	@Subscribe
@@ -570,6 +628,30 @@ public class MlmQolPlugin extends Plugin
 				? "Sack limit reached (" + sackTracker.getUsed() + "/" + blockAt
 					+ ") - mining is blocked until you collect from the sack."
 				: "Your sack has room again - mining is re-enabled.");
+		}
+	}
+
+	/**
+	 * Alerts once each time mining stops, whatever stopped it — the vein running out, the sack filling
+	 * up, or anything else that interrupts the swing.
+	 */
+	private void checkMiningStopped()
+	{
+		Player local = client.getLocalPlayer();
+		if (local == null)
+		{
+			miningIdleTracker.reset();
+			return;
+		}
+
+		if (!miningIdleTracker.onTick(local.getAnimation()))
+		{
+			return;
+		}
+
+		if (config.playWakeUpSound())
+		{
+			wakeUpSound.play(config.wakeUpSoundVolume());
 		}
 	}
 

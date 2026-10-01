@@ -52,6 +52,15 @@ strut.
 | Broken wheel colour | red | Colour of the broken strut outline and the `Strut broken` label |
 | Ore in transit colour | orange | Colour of the `Ore in transit` label |
 
+## Play a sound notification when you stop mining
+
+Plays a sound the moment you stop swinging at a vein..
+
+| Option | Default | Description |
+| --- | --- | --- |
+| Play wake up sound | off | Plays a sound whenever you stop mining |
+| Wake up volume | 100 | How loud it plays, from 1 to 100 — at 0 nothing plays |
+
 ## Name the baby mole
 
 Puts a name of your choosing over the baby mole. It only ever shows inside the Motherlode Mine.

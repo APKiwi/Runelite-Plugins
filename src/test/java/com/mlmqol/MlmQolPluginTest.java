@@ -14,20 +14,24 @@ import net.runelite.api.Menu;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.Scene;
 import net.runelite.api.Tile;
 import net.runelite.api.WallObject;
 import net.runelite.api.WorldView;
+import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameObjectDespawned;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuEntryAdded;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WallObjectSpawned;
+import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
@@ -44,6 +48,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -63,6 +68,9 @@ public class MlmQolPluginTest
 {
 	private static final int MLM_REGION = 14679;
 	private static final int ELSEWHERE_REGION = 12850;
+	private static final int MINING_ANIMATION = AnimationID.HUMAN_MINING_RUNE_PICKAXE_WALL;
+	private static final int IDLE_ANIMATION = -1;
+	private static final int IDLE_DELAY_TICKS = MiningIdleTracker.IDLE_GRACE_TICKS;
 	private static final int SACK_SIZE = 108;
 	private static final int SACK_LARGE_SIZE = 189;
 
@@ -74,6 +82,8 @@ public class MlmQolPluginTest
 	private HopperOverlay hopperOverlay;
 	private BabyMoleOverlay babyMoleOverlay;
 	private MlmQolConfig config;
+	private WakeUpSound wakeUpSound;
+	private Player localPlayer;
 	private Menu menu;
 	private ItemContainer inventory;
 	private WorldView worldView;
@@ -92,6 +102,8 @@ public class MlmQolPluginTest
 		hopperOverlay = mock(HopperOverlay.class);
 		babyMoleOverlay = mock(BabyMoleOverlay.class);
 		config = mock(MlmQolConfig.class);
+		wakeUpSound = mock(WakeUpSound.class);
+		localPlayer = mock(Player.class);
 		menu = mock(Menu.class);
 		inventory = mock(ItemContainer.class);
 		worldView = mock(WorldView.class);
@@ -101,10 +113,14 @@ public class MlmQolPluginTest
 		when(config.blockAtCount()).thenReturn(SACK_SIZE);
 		when(config.warnInChat()).thenReturn(true);
 		when(config.blockDepositWhenBlocked()).thenReturn(true);
+		when(config.playWakeUpSound()).thenReturn(true);
+		when(config.wakeUpSoundVolume()).thenReturn(100);
 
 		when(client.getMenu()).thenReturn(menu);
 		when(client.getItemContainer(InventoryID.INV)).thenReturn(inventory);
 		when(client.getTopLevelWorldView()).thenReturn(worldView);
+		when(client.getLocalPlayer()).thenReturn(localPlayer);
+		when(localPlayer.getAnimation()).thenReturn(IDLE_ANIMATION);
 		when(worldView.getScene()).thenReturn(scene);
 		when(scene.getTiles()).thenReturn(new Tile[0][0][0]);
 		doReturn(npcSet()).when(worldView).npcs();
@@ -131,6 +147,7 @@ public class MlmQolPluginTest
 			binder.bind(HopperOverlay.class).toInstance(hopperOverlay);
 			binder.bind(BabyMoleOverlay.class).toInstance(babyMoleOverlay);
 			binder.bind(MlmQolConfig.class).toInstance(config);
+			binder.bind(WakeUpSound.class).toInstance(wakeUpSound);
 		});
 		plugin = injector.getInstance(MlmQolPlugin.class);
 	}
@@ -220,6 +237,39 @@ public class MlmQolPluginTest
 		}
 	}
 
+	/** Puts the local player into an animation, the way the client reports one. */
+	private void animating(int animation)
+	{
+		when(localPlayer.getAnimation()).thenReturn(animation);
+		AnimationChanged event = new AnimationChanged();
+		event.setActor(localPlayer);
+		plugin.onAnimationChanged(event);
+	}
+
+	/** Mines for a few ticks, then stops and waits out the idle grace period. */
+	private void mineThenStop()
+	{
+		animating(MINING_ANIMATION);
+		tick(3);
+		animating(IDLE_ANIMATION);
+		tick(IDLE_DELAY_TICKS);
+	}
+
+	/**
+	 * Mines the way the client actually reports it: the animation is restarted each swing and clears in
+	 * between, so the player shows no animation for part of every cycle.
+	 */
+	private void mineForSwings(int swings, int gapTicks)
+	{
+		for (int i = 0; i < swings; i++)
+		{
+			animating(MINING_ANIMATION);
+			tick(1);
+			animating(IDLE_ANIMATION);
+			tick(gapTicks);
+		}
+	}
+
 	private GameObject spawnGameObject(int id)
 	{
 		GameObject object = mock(GameObject.class);
@@ -277,6 +327,12 @@ public class MlmQolPluginTest
 		when(entry.getIdentifier()).thenReturn(objectId);
 		when(entry.getType()).thenReturn(type);
 		return entry;
+	}
+
+	/** Clicks something, the way a left click or a right-click menu option arrives. */
+	private void click(String option, MenuAction type)
+	{
+		plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry(option, 0, type)));
 	}
 
 	private MenuEntry addMenuEntry(String option, int objectId)
@@ -1259,5 +1315,183 @@ public class MlmQolPluginTest
 		inventoryChanged();
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 		verify(menu).removeMenuEntry(any());
+	}
+
+	// ---- wake up sound -------------------------------------------------------------------------
+
+	@Test
+	public void theSoundPlaysWhenMiningStops()
+	{
+		enterMlm();
+		mineThenStop();
+
+		verify(wakeUpSound).play(100);
+	}
+
+	@Test
+	public void theSoundStaysQuietWhileMining()
+	{
+		enterMlm();
+		animating(MINING_ANIMATION);
+		tick(20);
+
+		verify(wakeUpSound, never()).play(anyInt());
+	}
+
+	@Test
+	public void theSoundStaysQuietThroughTheGapsBetweenSwings()
+	{
+		enterMlm();
+
+		// The animation clearing between swings is not a stop, however many cycles it goes on for.
+		mineForSwings(30, IDLE_DELAY_TICKS - 1);
+
+		verify(wakeUpSound, never()).play(anyInt());
+
+		// A real stop still lands.
+		tick(IDLE_DELAY_TICKS);
+		verify(wakeUpSound).play(anyInt());
+	}
+
+	@Test
+	public void theSoundPlaysOncePerStop()
+	{
+		enterMlm();
+		mineThenStop();
+		tick(20);
+
+		verify(wakeUpSound, times(1)).play(anyInt());
+
+		// Picking the next vein back up arms it again.
+		mineThenStop();
+		verify(wakeUpSound, times(2)).play(anyInt());
+	}
+
+	@Test
+	public void theSoundRespectsTheToggle()
+	{
+		when(config.playWakeUpSound()).thenReturn(false);
+		enterMlm();
+		mineThenStop();
+
+		verify(wakeUpSound, never()).play(anyInt());
+	}
+
+	@Test
+	public void theSoundUsesTheConfiguredVolume()
+	{
+		when(config.wakeUpSoundVolume()).thenReturn(40);
+		enterMlm();
+		mineThenStop();
+
+		verify(wakeUpSound).play(40);
+	}
+
+	@Test
+	public void miningOutsideTheMineIsIgnored()
+	{
+		inRegion(ELSEWHERE_REGION);
+		gameState(GameState.LOADING);
+		mineThenStop();
+
+		verify(wakeUpSound, never()).play(anyInt());
+	}
+
+	@Test
+	public void leavingTheMineMidSwingDoesNotAlert()
+	{
+		enterMlm();
+		animating(MINING_ANIMATION);
+		tick(3);
+
+		// Teleporting out stops the animation, but that is not a stop worth waking up for.
+		animating(IDLE_ANIMATION);
+		leaveMlm();
+		tick(20);
+
+		verify(wakeUpSound, never()).play(anyInt());
+	}
+
+	@Test
+	public void walkingAwayDoesNotAlert()
+	{
+		enterMlm();
+		animating(MINING_ANIMATION);
+		tick(3);
+
+		click("Walk here", MenuAction.WALK);
+		animating(IDLE_ANIMATION);
+		tick(20);
+
+		verify(wakeUpSound, never()).play(anyInt());
+	}
+
+	@Test
+	public void clickingAnotherObjectDoesNotAlert()
+	{
+		enterMlm();
+		animating(MINING_ANIMATION);
+		tick(3);
+
+		// Off to the hopper — the player knows they stopped mining.
+		click("Deposit", MenuAction.GAME_OBJECT_FIRST_OPTION);
+		animating(IDLE_ANIMATION);
+		tick(20);
+
+		verify(wakeUpSound, never()).play(anyInt());
+	}
+
+	@Test
+	public void aSwingOutlivingTheClickDoesNotAlert()
+	{
+		enterMlm();
+		animating(MINING_ANIMATION);
+		tick(3);
+
+		// The abandoned swing is still being reported after the click has been handled.
+		click("Walk here", MenuAction.WALK);
+		animating(MINING_ANIMATION);
+		tick(1);
+		animating(IDLE_ANIMATION);
+		tick(20);
+
+		verify(wakeUpSound, never()).play(anyInt());
+	}
+
+	@Test
+	public void theNextVeinStillAlerts()
+	{
+		enterMlm();
+		animating(MINING_ANIMATION);
+		tick(3);
+
+		// Clicking the next vein skips the alert for the vein being left behind.
+		click("Mine", MenuAction.GAME_OBJECT_FIRST_OPTION);
+		animating(IDLE_ANIMATION);
+		tick(5);
+		verify(wakeUpSound, never()).play(anyInt());
+
+		// Mining it, then running it dry, is a stop the player did not ask for.
+		mineThenStop();
+		verify(wakeUpSound).play(anyInt());
+	}
+
+	@Test
+	public void anInterfaceClickStillAlerts()
+	{
+		enterMlm();
+		animating(MINING_ANIMATION);
+		tick(3);
+
+		// Eating, dropping, switching tabs: none of it stops you mining, so none of it suppresses.
+		click("Eat", MenuAction.CC_OP);
+		click("Toggle Run", MenuAction.CC_OP_LOW_PRIORITY);
+		click("Examine", MenuAction.EXAMINE_OBJECT);
+		click("Cancel", MenuAction.CANCEL);
+
+		animating(IDLE_ANIMATION);
+		tick(IDLE_DELAY_TICKS);
+
+		verify(wakeUpSound).play(anyInt());
 	}
 }
