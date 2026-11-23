@@ -41,7 +41,6 @@ import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
-import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.Notification;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -79,7 +78,6 @@ public class MlmQolPluginTest
 
 	private Client client;
 	private ClientThread clientThread;
-	private ConfigManager configManager;
 	private ChatMessageManager chatMessageManager;
 	private OverlayManager overlayManager;
 	private HopperOverlay hopperOverlay;
@@ -100,7 +98,6 @@ public class MlmQolPluginTest
 	{
 		client = mock(Client.class);
 		clientThread = mock(ClientThread.class);
-		configManager = mock(ConfigManager.class);
 		chatMessageManager = mock(ChatMessageManager.class);
 		overlayManager = mock(OverlayManager.class);
 		hopperOverlay = mock(HopperOverlay.class);
@@ -114,7 +111,7 @@ public class MlmQolPluginTest
 		scene = mock(Scene.class);
 
 		when(config.blockMining()).thenReturn(true);
-		when(config.blockAtCount()).thenReturn(SACK_SIZE);
+		when(config.blockAtCount()).thenReturn(SACK_LARGE_SIZE);
 		when(config.warnInChat()).thenReturn(true);
 		when(config.blockDepositWhenBlocked()).thenReturn(true);
 		when(config.miningStoppedNotification()).thenReturn(Notification.ON);
@@ -144,7 +141,6 @@ public class MlmQolPluginTest
 		{
 			binder.bind(Client.class).toInstance(client);
 			binder.bind(ClientThread.class).toInstance(clientThread);
-			binder.bind(ConfigManager.class).toInstance(configManager);
 			binder.bind(ChatMessageManager.class).toInstance(chatMessageManager);
 			binder.bind(OverlayManager.class).toInstance(overlayManager);
 			binder.bind(HopperOverlay.class).toInstance(hopperOverlay);
@@ -856,76 +852,21 @@ public class MlmQolPluginTest
 	// ---- capacity upgrade ----------------------------------------------------------------------
 
 	@Test
-	public void blockCountIsRaisedToTheLargeSackWhenTheUpgradeIsUnlocked()
+	public void theDefaultBlockCountFollowsTheUpgrade()
 	{
-		when(configManager.getConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT))
-			.thenReturn(Integer.toString(SACK_SIZE));
+		enterMlm();
+		deposited(SACK_SIZE);
+		sackVarbitChanged();
 		upgraded(true);
-
-		plugin.startUp();
-
-		verify(configManager).setConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT, SACK_LARGE_SIZE);
-	}
-
-	@Test
-	public void blockCountIsRaisedWhenItHasNeverBeenSet()
-	{
-		when(configManager.getConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT)).thenReturn(null);
-		upgraded(true);
-
-		plugin.startUp();
-
-		verify(configManager).setConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT, SACK_LARGE_SIZE);
-	}
-
-	@Test
-	public void aCustomBlockCountIsNeverOverwritten()
-	{
-		when(configManager.getConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT)).thenReturn("150");
-		upgraded(true);
-
-		plugin.startUp();
-
-		verify(configManager, never()).setConfiguration(anyString(), anyString(), any());
-	}
-
-	@Test
-	public void blockCountIsLeftAtTheSmallSackWithoutTheUpgrade()
-	{
-		when(configManager.getConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT))
-			.thenReturn(Integer.toString(SACK_SIZE));
-		upgraded(false);
-
-		plugin.startUp();
-
-		verify(configManager, never()).setConfiguration(anyString(), anyString(), any());
-	}
-
-	@Test
-	public void theUpgradeIsPickedUpOutsideTheMine()
-	{
-		// The varbit is only transmitted during the login varp sync, nowhere near the mine.
-		when(configManager.getConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT))
-			.thenReturn(Integer.toString(SACK_SIZE));
-		leaveMlm();
-		upgraded(true);
-
 		upgradeVarbitChanged();
 
-		verify(configManager).setConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT, SACK_LARGE_SIZE);
-	}
+		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
+		verify(menu, never()).removeMenuEntry(any());
 
-	@Test
-	public void theUpgradeIsPickedUpOnLoginWithoutAVarbitChange()
-	{
-		// Re-logging in the same client session doesn't change the varp, so no VarbitChanged fires.
-		when(configManager.getConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT))
-			.thenReturn(Integer.toString(SACK_SIZE));
-		upgraded(true);
-
-		gameState(GameState.LOGGED_IN);
-
-		verify(configManager).setConfiguration(MlmQolPlugin.CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT, SACK_LARGE_SIZE);
+		deposited(SACK_LARGE_SIZE);
+		sackVarbitChanged();
+		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
+		verify(menu).removeMenuEntry(any());
 	}
 
 	@Test

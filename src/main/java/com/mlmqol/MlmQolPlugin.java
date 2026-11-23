@@ -105,9 +105,6 @@ public class MlmQolPlugin extends Plugin
 	private ChatMessageManager chatMessageManager;
 
 	@Inject
-	private ConfigManager configManager;
-
-	@Inject
 	private OverlayManager overlayManager;
 
 	@Inject
@@ -157,11 +154,7 @@ public class MlmQolPlugin extends Plugin
 				primeTracker();
 				scanScene();
 			}
-			// Set silently before followCapacityUpgrade, whose config write re-evaluates it.
 			sackFull = inMlm && isSackFull();
-
-			sackTracker.refreshCapacity(client);
-			followCapacityUpgrade();
 		});
 	}
 
@@ -191,15 +184,8 @@ public class MlmQolPlugin extends Plugin
 			if (inMlm && !wasInMlm)
 			{
 				primeTracker();
-				followCapacityUpgrade();
 				updateSackFull();
 			}
-		}
-		else if (gameState == GameState.LOGGED_IN)
-		{
-			// Relogging in the same session doesn't resend an unchanged varbit.
-			sackTracker.refreshCapacity(client);
-			followCapacityUpgrade();
 		}
 		else if (gameState == GameState.LOGIN_SCREEN)
 		{
@@ -370,13 +356,6 @@ public class MlmQolPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event)
 	{
-		// Only sent during the login sync, long before reaching the mine, so not gated on inMlm.
-		if (event.getVarbitId() == VarbitID.MOTHERLODE_BIGGERSACK)
-		{
-			sackTracker.refreshCapacity(client);
-			followCapacityUpgrade();
-		}
-
 		if (inMlm && (event.getVarbitId() == VarbitID.MOTHERLODE_SACK_TRANSMIT || event.getVarbitId() == VarbitID.MOTHERLODE_BIGGERSACK))
 		{
 			sackTracker.refreshSack(client);
@@ -485,21 +464,6 @@ public class MlmQolPlugin extends Plugin
 		sackTracker.refreshSack(client);
 		sackTracker.refreshInventory(client);
 		sackTracker.prime();
-	}
-
-	// A block count left at the small sack size follows the upgrade, any other value is the user's choice.
-	private void followCapacityUpgrade()
-	{
-		if (sackTracker.getCapacity() != SackTracker.SACK_LARGE_SIZE)
-		{
-			return;
-		}
-
-		String stored = configManager.getConfiguration(CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT);
-		if (stored == null || stored.equals(Integer.toString(SackTracker.SACK_SIZE)))
-		{
-			configManager.setConfiguration(CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT, SackTracker.SACK_LARGE_SIZE);
-		}
 	}
 
 	private void updateSackFull()

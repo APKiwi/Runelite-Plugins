@@ -69,15 +69,14 @@ public interface MlmQolConfig extends Config
 	@ConfigItem(
 		keyName = BLOCK_AT_COUNT,
 		name = "Block at",
-		description = "Pay-dirt count to stop mining at. Defaults to your sack capacity, and follows the "
-			+ "capacity upgrade automatically unless you set your own value. Never exceeds the real capacity.",
+		description = "Pay-dirt count to stop mining at, capped at what your sack holds (108, or 189 with the upgrade)",
 		position = 2,
 		section = SACK_SECTION
 	)
 	@Range(min = 1, max = SackTracker.SACK_LARGE_SIZE)
 	default int blockAtCount()
 	{
-		return SackTracker.SACK_SIZE;
+		return SackTracker.SACK_LARGE_SIZE;
 	}
 
 	@ConfigItem(
