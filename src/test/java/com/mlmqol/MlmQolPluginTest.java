@@ -37,10 +37,12 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.gameval.VarbitID;
+import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.Notification;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.junit.Before;
@@ -49,8 +51,8 @@ import org.mockito.ArgumentCaptor;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -83,7 +85,7 @@ public class MlmQolPluginTest
 	private HopperOverlay hopperOverlay;
 	private BabyMoleOverlay babyMoleOverlay;
 	private MlmQolConfig config;
-	private WakeUpSound wakeUpSound;
+	private Notifier notifier;
 	private Player localPlayer;
 	private Menu menu;
 	private ItemContainer inventory;
@@ -104,7 +106,7 @@ public class MlmQolPluginTest
 		hopperOverlay = mock(HopperOverlay.class);
 		babyMoleOverlay = mock(BabyMoleOverlay.class);
 		config = mock(MlmQolConfig.class);
-		wakeUpSound = mock(WakeUpSound.class);
+		notifier = mock(Notifier.class);
 		localPlayer = mock(Player.class);
 		menu = mock(Menu.class);
 		inventory = mock(ItemContainer.class);
@@ -115,8 +117,7 @@ public class MlmQolPluginTest
 		when(config.blockAtCount()).thenReturn(SACK_SIZE);
 		when(config.warnInChat()).thenReturn(true);
 		when(config.blockDepositWhenBlocked()).thenReturn(true);
-		when(config.playWakeUpSound()).thenReturn(true);
-		when(config.wakeUpSoundVolume()).thenReturn(100);
+		when(config.miningStoppedNotification()).thenReturn(Notification.ON);
 
 		when(client.getMenu()).thenReturn(menu);
 		when(client.getItemContainer(InventoryID.INV)).thenReturn(inventory);
@@ -149,7 +150,7 @@ public class MlmQolPluginTest
 			binder.bind(HopperOverlay.class).toInstance(hopperOverlay);
 			binder.bind(BabyMoleOverlay.class).toInstance(babyMoleOverlay);
 			binder.bind(MlmQolConfig.class).toInstance(config);
-			binder.bind(WakeUpSound.class).toInstance(wakeUpSound);
+			binder.bind(Notifier.class).toInstance(notifier);
 		});
 		plugin = injector.getInstance(MlmQolPlugin.class);
 	}
@@ -1348,71 +1349,61 @@ public class MlmQolPluginTest
 	// ---- wake up sound -------------------------------------------------------------------------
 
 	@Test
-	public void theSoundPlaysWhenMiningStops()
+	public void notifiesWhenMiningStops()
 	{
 		enterMlm();
 		mineThenStop();
 
-		verify(wakeUpSound).play(100);
+		verify(notifier).notify(eq(Notification.ON), anyString());
 	}
 
 	@Test
-	public void theSoundStaysQuietWhileMining()
+	public void staysQuietWhileMining()
 	{
 		enterMlm();
 		animating(MINING_ANIMATION);
 		tick(20);
 
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 	}
 
 	@Test
-	public void theSoundStaysQuietThroughTheGapsBetweenSwings()
+	public void staysQuietThroughTheGapsBetweenSwings()
 	{
 		enterMlm();
 
 		// The animation clearing between swings is not a stop, however many cycles it goes on for.
 		mineForSwings(30, IDLE_DELAY_TICKS - 1);
 
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 
 		// A real stop still lands.
 		tick(IDLE_DELAY_TICKS);
-		verify(wakeUpSound).play(anyInt());
+		verify(notifier).notify(any(Notification.class), anyString());
 	}
 
 	@Test
-	public void theSoundPlaysOncePerStop()
+	public void notifiesOncePerStop()
 	{
 		enterMlm();
 		mineThenStop();
 		tick(20);
 
-		verify(wakeUpSound, times(1)).play(anyInt());
+		verify(notifier, times(1)).notify(any(Notification.class), anyString());
 
 		// Picking the next vein back up arms it again.
 		mineThenStop();
-		verify(wakeUpSound, times(2)).play(anyInt());
+		verify(notifier, times(2)).notify(any(Notification.class), anyString());
 	}
 
 	@Test
-	public void theSoundRespectsTheToggle()
+	public void theConfiguredNotificationIsPassedToTheNotifier()
 	{
-		when(config.playWakeUpSound()).thenReturn(false);
+		when(config.miningStoppedNotification()).thenReturn(Notification.OFF);
 		enterMlm();
 		mineThenStop();
 
-		verify(wakeUpSound, never()).play(anyInt());
-	}
-
-	@Test
-	public void theSoundUsesTheConfiguredVolume()
-	{
-		when(config.wakeUpSoundVolume()).thenReturn(40);
-		enterMlm();
-		mineThenStop();
-
-		verify(wakeUpSound).play(40);
+		verify(notifier).notify(eq(Notification.OFF), anyString());
 	}
 
 	@Test
@@ -1422,7 +1413,7 @@ public class MlmQolPluginTest
 		gameState(GameState.LOADING);
 		mineThenStop();
 
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 	}
 
 	@Test
@@ -1437,7 +1428,7 @@ public class MlmQolPluginTest
 		leaveMlm();
 		tick(20);
 
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 	}
 
 	@Test
@@ -1451,7 +1442,7 @@ public class MlmQolPluginTest
 		animating(IDLE_ANIMATION);
 		tick(20);
 
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 	}
 
 	@Test
@@ -1466,7 +1457,7 @@ public class MlmQolPluginTest
 		animating(IDLE_ANIMATION);
 		tick(20);
 
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 	}
 
 	@Test
@@ -1483,7 +1474,7 @@ public class MlmQolPluginTest
 		animating(IDLE_ANIMATION);
 		tick(20);
 
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 	}
 
 	@Test
@@ -1497,11 +1488,11 @@ public class MlmQolPluginTest
 		click("Mine", MenuAction.GAME_OBJECT_FIRST_OPTION);
 		animating(IDLE_ANIMATION);
 		tick(5);
-		verify(wakeUpSound, never()).play(anyInt());
+		verify(notifier, never()).notify(any(Notification.class), anyString());
 
 		// Mining it, then running it dry, is a stop the player did not ask for.
 		mineThenStop();
-		verify(wakeUpSound).play(anyInt());
+		verify(notifier).notify(any(Notification.class), anyString());
 	}
 
 	@Test
@@ -1520,6 +1511,6 @@ public class MlmQolPluginTest
 		animating(IDLE_ANIMATION);
 		tick(IDLE_DELAY_TICKS);
 
-		verify(wakeUpSound).play(anyInt());
+		verify(notifier).notify(any(Notification.class), anyString());
 	}
 }

@@ -40,6 +40,7 @@ import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.gameval.VarbitID;
+import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.chat.ChatColorType;
 import net.runelite.client.chat.ChatMessageBuilder;
@@ -57,7 +58,7 @@ import net.runelite.client.util.Text;
 @PluginDescriptor(
 		name = "MLM QOL",
 		description = "Quality of life for the Motherlode Mine: stop mining when the sack is full, and flag a stopped hopper",
-		tags = {"motherlode", "mlm", "mining", "sack", "pay", "dirt", "skilling", "sound", "afk", "idle"},
+		tags = {"motherlode", "mlm", "mining", "sack", "pay", "dirt", "skilling", "notification", "afk", "idle"},
 		configName = "MlmQolPlugin"
 )
 public class MlmQolPlugin extends Plugin
@@ -119,7 +120,7 @@ public class MlmQolPlugin extends Plugin
 	private MlmQolConfig config;
 
 	@Inject
-	private WakeUpSound wakeUpSound;
+	private Notifier notifier;
 
 	private final SackTracker sackTracker = new SackTracker();
 	private final MiningIdleTracker miningIdleTracker = new MiningIdleTracker();
@@ -147,7 +148,6 @@ public class MlmQolPlugin extends Plugin
 	{
 		overlayManager.add(hopperOverlay);
 		overlayManager.add(babyMoleOverlay);
-		wakeUpSound.start();
 
 		clientThread.invokeLater(() ->
 		{
@@ -170,7 +170,6 @@ public class MlmQolPlugin extends Plugin
 	{
 		overlayManager.remove(hopperOverlay);
 		overlayManager.remove(babyMoleOverlay);
-		wakeUpSound.shutDown();
 		inMlm = false;
 		sackFull = false;
 		sackTracker.reset();
@@ -556,9 +555,9 @@ public class MlmQolPlugin extends Plugin
 		{
 			miningIdleTracker.reset();
 		}
-		else if (miningIdleTracker.onTick(local.getAnimation()) && config.playWakeUpSound())
+		else if (miningIdleTracker.onTick(local.getAnimation()))
 		{
-			wakeUpSound.play(config.wakeUpSoundVolume());
+			notifier.notify(config.miningStoppedNotification(), "You've stopped mining.");
 		}
 	}
 

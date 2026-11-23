@@ -6,6 +6,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Notification;
 import net.runelite.client.config.Range;
 
 @ConfigGroup(MlmQolPlugin.CONFIG_GROUP)
@@ -22,8 +23,8 @@ public interface MlmQolConfig extends Config
 	String BABY_MOLE_NAME_COLOR = "babyMoleNameColor";
 	String STOPPED_HOPPER_COLOR = "stoppedHopperColor";
 	String ORE_IN_TRANSIT_COLOR = "oreInTransitColor";
-	String PLAY_WAKE_UP_SOUND = "playWakeUpSound";
-	String WAKE_UP_SOUND_VOLUME = "wakeUpSoundVolume";
+	// Kept from the old sound toggle, NotificationSerializer reads its stored true or false as on or off.
+	String MINING_STOPPED_NOTIFICATION = "playWakeUpSound";
 
 	@ConfigSection(
 		name = "Sack",
@@ -40,11 +41,11 @@ public interface MlmQolConfig extends Config
 	String HOPPER_SECTION = "hopper";
 
 	@ConfigSection(
-		name = "Sound notifications",
-		description = "Sounds that play when something in the mine is worth knowing about",
+		name = "Notifications",
+		description = "Notifications for things in the mine worth knowing about",
 		position = 2
 	)
-	String SOUND_NOTIFICATIONS_SECTION = "soundNotifications";
+	String NOTIFICATIONS_SECTION = "soundNotifications";
 
 	@ConfigSection(
 		name = "Baby mole",
@@ -156,28 +157,15 @@ public interface MlmQolConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = PLAY_WAKE_UP_SOUND,
-		name = "Play wake up sound",
-		description = "Plays a sound whenever you stop mining in the Motherlode Mine",
+		keyName = MINING_STOPPED_NOTIFICATION,
+		name = "Stopped mining",
+		description = "Notifies you whenever you stop mining in the Motherlode Mine",
 		position = 1,
-		section = SOUND_NOTIFICATIONS_SECTION
+		section = NOTIFICATIONS_SECTION
 	)
-	default boolean playWakeUpSound()
+	default Notification miningStoppedNotification()
 	{
-		return true;
-	}
-
-	@ConfigItem(
-		keyName = WAKE_UP_SOUND_VOLUME,
-		name = "Wake up volume",
-		description = "How loud the wake up sound plays, from 1 to 100. At 0 nothing plays.",
-		position = 2,
-		section = SOUND_NOTIFICATIONS_SECTION
-	)
-	@Range(max = 100)
-	default int wakeUpSoundVolume()
-	{
-		return 100;
+		return Notification.ON;
 	}
 
 	@ConfigItem(
