@@ -13,11 +13,6 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the sack bookkeeping: capacity, and the "in transit" accounting that credits pay-dirt to the
- * sack the moment it leaves the inventory rather than several seconds later when the conveyor belt
- * finally delivers it.
- */
 public class SackTrackerTest
 {
 	private static final int SACK_SIZE = 108;
@@ -57,7 +52,6 @@ public class SackTrackerTest
 		when(inventory.count()).thenReturn(otherItems + payDirt);
 	}
 
-	/** Puts the tracker in the state the plugin primes it into on entering the mine. */
 	private void prime()
 	{
 		tracker.reset();
@@ -65,8 +59,6 @@ public class SackTrackerTest
 		tracker.refreshInventory(client);
 		tracker.prime();
 	}
-
-	// ---- capacity ------------------------------------------------------------------------------
 
 	@Test
 	public void capacityDefaultsToTheSmallSack()
@@ -102,7 +94,6 @@ public class SackTrackerTest
 		tracker.refreshInventory(client);
 		assertEquals(27, tracker.getInTransit());
 
-		// Called from outside the mine on login — it must not be mistaken for an arrival.
 		upgraded(true);
 		tracker.refreshCapacity(client);
 
@@ -110,12 +101,9 @@ public class SackTrackerTest
 		assertEquals(SACK_LARGE_SIZE, tracker.getCapacity());
 	}
 
-	// ---- in transit -----------------------------------------------------------------------------
-
 	@Test
 	public void initialReadsDoNotInventPhantomInTransitPayDirt()
 	{
-		// Priming reads a full sack and an empty inventory. Neither is a deposit.
 		deposited(50);
 		carrying(0);
 		prime();
@@ -155,7 +143,6 @@ public class SackTrackerTest
 	@Test
 	public void partialDeliveryLeavesTheRemainderInTransit()
 	{
-		// The belt delivers a few at a time rather than the whole load at once.
 		carrying(27);
 		prime();
 		carrying(0);
@@ -178,7 +165,6 @@ public class SackTrackerTest
 		carrying(0);
 		tracker.refreshInventory(client);
 
-		// More arrives than we knew about — another source, or state we joined midway.
 		deposited(40);
 		tracker.refreshSack(client);
 
@@ -195,7 +181,6 @@ public class SackTrackerTest
 		tracker.refreshInventory(client);
 		assertEquals(27, tracker.getInTransit());
 
-		// Collecting empties the sack — a decrease, not an arrival.
 		deposited(0);
 		tracker.refreshSack(client);
 
@@ -214,12 +199,9 @@ public class SackTrackerTest
 		assertEquals(14, tracker.getCarriedPayDirt());
 	}
 
-	// ---- the stale write-off -------------------------------------------------------------------
-
 	@Test
 	public void inTransitPayDirtThatNeverArrivesIsEventuallyWrittenOff()
 	{
-		// Guards against pay-dirt dropped on the floor blocking mining forever.
 		carrying(27);
 		prime();
 		carrying(0);
@@ -270,8 +252,6 @@ public class SackTrackerTest
 		assertEquals(0, tracker.getInTransit());
 	}
 
-	// ---- reset ---------------------------------------------------------------------------------
-
 	@Test
 	public void resetClearsEverythingIncludingThePrimedFlag()
 	{
@@ -289,15 +269,12 @@ public class SackTrackerTest
 		assertEquals(0, tracker.getCarriedPayDirt());
 		assertEquals(SACK_SIZE, tracker.getCapacity());
 
-		// Unprimed again: the next reads are treated as initial, not as a deposit.
 		carrying(27);
 		tracker.refreshInventory(client);
 		carrying(0);
 		tracker.refreshSack(client);
 		assertEquals(0, tracker.getInTransit());
 	}
-
-	// ---- used / isFull -------------------------------------------------------------------------
 
 	@Test
 	public void usedSumsDepositedInTransitAndCarried()
@@ -308,12 +285,9 @@ public class SackTrackerTest
 		carrying(10);
 		tracker.refreshInventory(client);
 
-		// 40 deposited, 20 that left the inventory and is on the belt, 10 still carried.
 		assertEquals(20, tracker.getInTransit());
 		assertEquals(70, tracker.getUsed());
 	}
-
-	// ---- committed (what the sack can no longer take more of) ----------------------------------
 
 	@Test
 	public void committedCountsTheSackAndTheBeltButNotTheInventory()
@@ -324,7 +298,6 @@ public class SackTrackerTest
 		carrying(10);
 		tracker.refreshInventory(client);
 
-		// 40 delivered, 20 on the belt, 10 still carried.
 		assertEquals(60, tracker.getCommitted());
 		assertEquals(70, tracker.getUsed());
 	}
@@ -332,7 +305,6 @@ public class SackTrackerTest
 	@Test
 	public void carriedPayDirtNeverMakesTheSackCommittedFull()
 	{
-		// The load in the inventory is the one asking to be deposited, and there is room for it.
 		deposited(81);
 		carrying(27);
 		prime();
@@ -388,8 +360,6 @@ public class SackTrackerTest
 	@Test
 	public void isFullClampsABlockCountAboveCapacity()
 	{
-		// An un-upgraded sack cannot hold 189, so asking to block at 189 must still block at 108
-		// rather than never blocking at all.
 		deposited(108);
 		prime();
 
@@ -405,7 +375,6 @@ public class SackTrackerTest
 
 		assertTrue("60 in the sack plus 48 carried fills it", tracker.isFull(SACK_SIZE));
 
-		// Depositing moves it to the belt — still full, with no gap while the belt catches up.
 		carrying(0);
 		tracker.refreshInventory(client);
 		assertTrue(tracker.isFull(SACK_SIZE));

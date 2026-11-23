@@ -15,10 +15,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the name drawn over the baby mole. Which moles are in the set is the plugin's decision, and
- * is what keeps this to the Motherlode Mine — see MlmQolPluginTest.
- */
 public class BabyMoleOverlayTest
 {
 	private static final String NAME = "Digby";
@@ -69,7 +65,6 @@ public class BabyMoleOverlayTest
 	@Test
 	public void turnedOffDoesNotEvenWalkTheSceneState()
 	{
-		// This runs every frame, so the cheap check has to come first.
 		when(config.nameBabyMole()).thenReturn(false);
 
 		overlay.render(graphics);
@@ -110,7 +105,6 @@ public class BabyMoleOverlayTest
 	@Test
 	public void colourTagsInTheNameAreStripped()
 	{
-		// Otherwise the raw tag would be drawn as literal text.
 		when(config.babyMoleName()).thenReturn("<col=ff0000>Digby</col>");
 
 		overlay.render(graphics);

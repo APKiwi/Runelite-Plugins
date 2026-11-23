@@ -6,14 +6,9 @@ import org.junit.Test;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Covers the "you stopped mining" edge: the tracker has to fire exactly once per stop, sit quiet
- * while swings continue, and stay quiet until another swing re-arms it.
- */
 public class MiningIdleTrackerTest
 {
 	private static final int MINING = AnimationID.HUMAN_MINING_RUNE_PICKAXE_WALL;
-	/** Any animation that is not a swing at a vein — here, picking something up. */
 	private static final int OTHER_ANIMATION = AnimationID.HUMAN_PICKUPTABLE;
 	private static final int IDLE = -1;
 	private static final int GRACE_TICKS = MiningIdleTracker.IDLE_GRACE_TICKS;
@@ -26,7 +21,6 @@ public class MiningIdleTrackerTest
 		tracker = new MiningIdleTracker();
 	}
 
-	/** Runs the grace period out, returning true if the stop fired within it. */
 	private boolean tickUntilStop(int animation)
 	{
 		for (int i = 0; i < GRACE_TICKS; i++)
@@ -56,7 +50,6 @@ public class MiningIdleTrackerTest
 		assertTrue(tickUntilStop(IDLE));
 		assertFalse(tracker.isMining());
 
-		// One stop, one alert — the following ticks must stay quiet.
 		assertFalse(tickUntilStop(IDLE));
 	}
 
@@ -78,8 +71,6 @@ public class MiningIdleTrackerTest
 	{
 		tracker.onAnimationChanged(MINING);
 
-		// The animation clears between swings, so a run of idle ticks inside the grace period followed
-		// by another swing is ordinary mining, not a stop.
 		for (int swing = 0; swing < 10; swing++)
 		{
 			for (int i = 0; i < GRACE_TICKS - 1; i++)
@@ -152,8 +143,6 @@ public class MiningIdleTrackerTest
 		tracker.onAnimationChanged(MINING);
 		tracker.onManualStop();
 
-		// The animation of the abandoned swing can still be showing on the next tick. Picking it back
-		// up would alert when it finally clears, which is exactly what the manual stop ruled out.
 		assertFalse(tracker.onTick(MINING));
 		assertFalse(tracker.isMining());
 		assertFalse(tickUntilStop(IDLE));
@@ -165,8 +154,6 @@ public class MiningIdleTrackerTest
 		tracker.onAnimationChanged(MINING);
 		tracker.onManualStop();
 
-		// The animation of the abandoned swing is reported after the click that abandoned it has been
-		// handled, which must not put the tracker back on a swing the player already walked away from.
 		tracker.onAnimationChanged(MINING);
 		assertFalse(tracker.isMining());
 
@@ -180,7 +167,6 @@ public class MiningIdleTrackerTest
 		tracker.onAnimationChanged(MINING);
 		tracker.onManualStop();
 
-		// Walking to the next vein clears the animation, and the swing that follows is tracked again.
 		assertFalse(tracker.onTick(IDLE));
 		tracker.onAnimationChanged(MINING);
 		assertTrue(tracker.isMining());
@@ -191,7 +177,6 @@ public class MiningIdleTrackerTest
 	@Test
 	public void aSwingSeenOnATickArmsTheTracker()
 	{
-		// No animation event — as when the plugin is enabled with a swing already underway.
 		assertFalse(tracker.onTick(MINING));
 		assertTrue(tracker.isMining());
 

@@ -61,11 +61,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * End-to-end coverage of the plugin: real {@link MlmQolPlugin} and {@link SackTracker} wired to a
- * mocked client, driven by the same game events RuneLite would post. Everything here goes in through
- * an event handler and comes out as a menu removal, a chat message, a config write, or scene state.
- */
 public class MlmQolPluginTest
 {
 	private static final int MLM_REGION = 14679;
@@ -129,7 +124,6 @@ public class MlmQolPluginTest
 		carrying(0);
 		inRegion(MLM_REGION);
 
-		// Run anything deferred to the client thread inline.
 		doAnswer(invocation ->
 		{
 			((Runnable) invocation.getArgument(0)).run();
@@ -149,8 +143,6 @@ public class MlmQolPluginTest
 		});
 		plugin = injector.getInstance(MlmQolPlugin.class);
 	}
-
-	// ---- harness -------------------------------------------------------------------------------
 
 	private void deposited(int count)
 	{
@@ -181,7 +173,6 @@ public class MlmQolPluginTest
 		plugin.onGameStateChanged(event);
 	}
 
-	/** Walks into the mine, which is what makes the plugin start tracking anything. */
 	private void enterMlm()
 	{
 		inRegion(MLM_REGION);
@@ -194,14 +185,12 @@ public class MlmQolPluginTest
 		gameState(GameState.LOADING);
 	}
 
-	/** Already logged in and standing in the mine, as when the plugin is enabled mid-session. */
 	private void standingInTheMine()
 	{
 		when(client.getGameState()).thenReturn(GameState.LOGGED_IN);
 		inRegion(MLM_REGION);
 	}
 
-	/** Builds a one-tile scene holding the given objects, for the enable-mid-session scan. */
 	private void sceneContaining(GameObject... objects)
 	{
 		Tile tile = mock(Tile.class);
@@ -236,7 +225,6 @@ public class MlmQolPluginTest
 		}
 	}
 
-	/** Puts the local player into an animation, the way the client reports one. */
 	private void animating(int animation)
 	{
 		when(localPlayer.getAnimation()).thenReturn(animation);
@@ -245,7 +233,6 @@ public class MlmQolPluginTest
 		plugin.onAnimationChanged(event);
 	}
 
-	/** Mines for a few ticks, then stops and waits out the idle grace period. */
 	private void mineThenStop()
 	{
 		animating(MINING_ANIMATION);
@@ -254,10 +241,6 @@ public class MlmQolPluginTest
 		tick(IDLE_DELAY_TICKS);
 	}
 
-	/**
-	 * Mines the way the client actually reports it: the animation is restarted each swing and clears in
-	 * between, so the player shows no animation for part of every cycle.
-	 */
 	private void mineForSwings(int swings, int gapTicks)
 	{
 		for (int i = 0; i < swings; i++)
@@ -333,7 +316,6 @@ public class MlmQolPluginTest
 		return entry;
 	}
 
-	/** Clicks something, the way a left click or a right-click menu option arrives. */
 	private void click(String option, MenuAction type)
 	{
 		plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry(option, 0, type)));
@@ -346,7 +328,6 @@ public class MlmQolPluginTest
 		return entry;
 	}
 
-	/** Deposits pay-dirt so it is out of the inventory but not yet counted by the sack varbit. */
 	private void strandPayDirt(int payDirt)
 	{
 		carrying(payDirt);
@@ -355,14 +336,11 @@ public class MlmQolPluginTest
 		inventoryChanged();
 	}
 
-	/** Fills the sack to its block count, the state that blocks mining. */
 	private void fillSack()
 	{
 		deposited(SACK_SIZE);
 		sackVarbitChanged();
 	}
-
-	// ---- menu blocking -------------------------------------------------------------------------
 
 	@Test
 	public void mineIsRemovedFromAVeinOnceTheSackIsFull()
@@ -419,7 +397,6 @@ public class MlmQolPluginTest
 		enterMlm();
 		fillSack();
 
-		// An ordinary rock elsewhere in the scene.
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ROCKFALL_1);
 
 		assertEquals(0, deprioritized);
@@ -431,7 +408,6 @@ public class MlmQolPluginTest
 		enterMlm();
 		fillSack();
 
-		// Same option and identifier, but a widget action rather than an object one.
 		MenuEntry entry = menuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE, MenuAction.WIDGET_TARGET_ON_GAME_OBJECT);
 		plugin.onMenuEntryAdded(new MenuEntryAdded(entry));
 
@@ -478,8 +454,6 @@ public class MlmQolPluginTest
 	@Test
 	public void depositingBlocksImmediatelyRatherThanWhenTheBeltCatchesUp()
 	{
-		// The conveyor takes several seconds, during which the sack varbit still reads low. Without
-		// in-transit tracking there would be a window here where mining was allowed again.
 		enterMlm();
 		deposited(81);
 		sackVarbitChanged();
@@ -582,8 +556,6 @@ public class MlmQolPluginTest
 		assertTrue(message.getValue().getRuneLiteFormattedMessage().contains("room for 18 more, less than a full load (27)"));
 	}
 
-	// ---- the two hopper conditions, each standing on its own ------------------------------------
-
 	@Test
 	public void aStoppedBeltAloneFlagsTheHopper()
 	{
@@ -597,7 +569,6 @@ public class MlmQolPluginTest
 	@Test
 	public void payDirtOnARunningBeltAloneFlagsTheHopper()
 	{
-		// Nothing is wrong, but your pay-dirt is out there and worth reporting.
 		enterMlm();
 		strandPayDirt(27);
 
@@ -641,8 +612,6 @@ public class MlmQolPluginTest
 		assertFalse("one broken strut is not a stopped belt", plugin.shouldFlagHopper());
 	}
 
-	// ---- hiding the Deposit option -------------------------------------------------------------
-
 	@Test
 	public void depositIsRemovedWhenTheBeltIsStoppedAndTheSackIsFull()
 	{
@@ -658,8 +627,6 @@ public class MlmQolPluginTest
 	@Test
 	public void depositIsRemovedWhenAStrutBreaksBeforeYourLoadArrives()
 	{
-		// The reported sequence: deposit, then the belt stops while your load is still on it. The sack
-		// is nowhere near full, but that stranded load is in the way of the next one.
 		enterMlm();
 		deposited(20);
 		sackVarbitChanged();
@@ -675,7 +642,6 @@ public class MlmQolPluginTest
 	@Test
 	public void depositIsRemovedWhenYouDepositIntoAnAlreadyStoppedBelt()
 	{
-		// Same end state, reached the other way round.
 		enterMlm();
 		deposited(20);
 		sackVarbitChanged();
@@ -691,7 +657,6 @@ public class MlmQolPluginTest
 	@Test
 	public void depositIsKeptOnAStoppedBeltWithNothingOnItAndRoomToSpare()
 	{
-		// Nothing is in the way and the sack can take it, so the load may as well go in and wait.
 		enterMlm();
 		breakBothStruts();
 		deposited(50);
@@ -717,8 +682,6 @@ public class MlmQolPluginTest
 	@Test
 	public void carriedPayDirtDoesNotCountTowardsHidingDeposit()
 	{
-		// 81 committed plus 27 carried reaches the block count, but the carried load is precisely what
-		// wants depositing, and the sack has room for it.
 		enterMlm();
 		breakBothStruts();
 		deposited(81);
@@ -734,8 +697,6 @@ public class MlmQolPluginTest
 	@Test
 	public void strandedPayDirtCountsTowardsHidingDeposit()
 	{
-		// Once that same load is on the stopped belt it is committed to the sack, and there is no
-		// longer room for another one.
 		enterMlm();
 		breakBothStruts();
 		deposited(81);
@@ -766,7 +727,6 @@ public class MlmQolPluginTest
 		deposited(50);
 		sackVarbitChanged();
 
-		// Stopped, room to spare, and nothing of yours stranded.
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 		assertEquals(0, deprioritized);
 
@@ -779,7 +739,6 @@ public class MlmQolPluginTest
 	@Test
 	public void payDirtOnARunningBeltDoesNotHideDeposit()
 	{
-		// The overlay reports it, but there is nothing stopping another load going in behind it.
 		enterMlm();
 		strandPayDirt(27);
 		assertTrue(plugin.hasPayDirtInTransit());
@@ -823,7 +782,6 @@ public class MlmQolPluginTest
 		breakBothStruts();
 		fillSack();
 
-		// Some other object that happens to offer a Deposit option.
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_SACK);
 
 		assertEquals(0, deprioritized);
@@ -832,7 +790,6 @@ public class MlmQolPluginTest
 	@Test
 	public void aStoppedBeltDoesNotBlockMiningByItself()
 	{
-		// The two rules are independent: the belt being down says nothing about room in the sack.
 		enterMlm();
 		breakBothStruts();
 
@@ -844,7 +801,6 @@ public class MlmQolPluginTest
 	@Test
 	public void aFullSackDoesNotHideDepositByItself()
 	{
-		// Depositing is exactly what you should do with a full sack and a running belt.
 		enterMlm();
 		fillSack();
 
@@ -852,8 +808,6 @@ public class MlmQolPluginTest
 
 		assertEquals(0, deprioritized);
 	}
-
-	// ---- capacity upgrade ----------------------------------------------------------------------
 
 	@Test
 	public void theDefaultBlockCountFollowsTheUpgrade()
@@ -887,8 +841,6 @@ public class MlmQolPluginTest
 		assertEquals(0, deprioritized);
 	}
 
-	// ---- struts and the hopper -----------------------------------------------------------------
-
 	@Test
 	public void oneBrokenStrutDoesNotStopTheBelt()
 	{
@@ -916,7 +868,6 @@ public class MlmQolPluginTest
 		spawnGameObject(ObjectID.MOTHERLODE_WHEEL_STRUT_BROKEN);
 		assertTrue(plugin.isMachineryStopped());
 
-		// Repairing swaps the broken object out for a fixed one.
 		despawnGameObject(broken);
 		spawnGameObject(ObjectID.MOTHERLODE_WHEEL_STRUT_FIXED);
 
@@ -959,8 +910,6 @@ public class MlmQolPluginTest
 		assertTrue(plugin.getHoppers().contains(hopper));
 	}
 
-	// ---- the baby mole -------------------------------------------------------------------------
-
 	@Test
 	public void aBabyMoleInTheMineIsTracked()
 	{
@@ -974,7 +923,6 @@ public class MlmQolPluginTest
 	@Test
 	public void aBabyMoleOutsideTheMineIsNeverTracked()
 	{
-		// The whole point of the location gate: a pet must not be renamed anywhere else in the game.
 		leaveMlm();
 
 		spawnNpc(NpcID.MOLE_PET);
@@ -1075,13 +1023,9 @@ public class MlmQolPluginTest
 		assertFalse(plugin.isMachineryStopped());
 	}
 
-	// ---- stuck pay-dirt ------------------------------------------------------------------------
-
 	@Test
 	public void strandedPayDirtIsNotWrittenOffWhileTheBeltIsStopped()
 	{
-		// The write-off exists so dropped pay-dirt can't block mining forever, but a stopped belt is
-		// a legitimate long gap — writing it off here would clear the warning while it is still true.
 		enterMlm();
 		breakBothStruts();
 		carrying(27);
@@ -1112,15 +1056,12 @@ public class MlmQolPluginTest
 		assertFalse(plugin.hasPayDirtInTransit());
 	}
 
-	// ---- chat warnings -------------------------------------------------------------------------
-
 	@Test
 	public void reachingTheLimitIsAnnouncedOnce()
 	{
 		enterMlm();
 		fillSack();
 
-		// Further events at the same state must not repeat it.
 		sackVarbitChanged();
 		tick(5);
 
@@ -1151,7 +1092,6 @@ public class MlmQolPluginTest
 	@Test
 	public void enablingThePluginNextToAFullSackDoesNotWarn()
 	{
-		// Adopting the current state silently, rather than announcing something that was already true.
 		standingInTheMine();
 		deposited(SACK_SIZE);
 
@@ -1163,7 +1103,6 @@ public class MlmQolPluginTest
 	@Test
 	public void enablingThePluginNextToAFullSackStillBlocksMining()
 	{
-		// Silent, but not inert — the state was adopted, not ignored.
 		standingInTheMine();
 		deposited(SACK_SIZE);
 
@@ -1176,8 +1115,6 @@ public class MlmQolPluginTest
 	@Test
 	public void enablingThePluginInTheMinePicksUpTheSceneStraightAway()
 	{
-		// The spawn events for the scene we are already standing in fired long ago, so without the
-		// one-off scan the hopper would go unnoticed until the next region load.
 		standingInTheMine();
 		GameObject hopper = mock(GameObject.class);
 		when(hopper.getId()).thenReturn(ObjectID.MOTHERLODE_HOPPER);
@@ -1203,8 +1140,6 @@ public class MlmQolPluginTest
 		assertTrue(plugin.isMachineryStopped());
 	}
 
-	// ---- lifecycle -----------------------------------------------------------------------------
-
 	@Test
 	public void theOverlayIsRegisteredAndCleanedUp() throws Exception
 	{
@@ -1228,7 +1163,6 @@ public class MlmQolPluginTest
 		assertFalse(plugin.isMachineryStopped());
 		assertTrue(plugin.getHoppers().isEmpty());
 
-		// No longer in the mine as far as the plugin is concerned, so nothing is blocked.
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 		assertEquals(0, deprioritized);
 	}
@@ -1279,19 +1213,14 @@ public class MlmQolPluginTest
 		sackVarbitChanged();
 		carrying(27);
 
-		// 81 in the sack plus 27 carried would fill it, but a bank change is not the player's
-		// inventory and must not be read as one.
 		plugin.onItemContainerChanged(new ItemContainerChanged(InventoryID.BANK, inventory));
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 		assertEquals(0, deprioritized);
 
-		// The real inventory does count.
 		inventoryChanged();
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 		assertEquals(1, deprioritized);
 	}
-
-	// ---- wake up sound -------------------------------------------------------------------------
 
 	@Test
 	public void notifiesWhenMiningStops()
@@ -1317,12 +1246,10 @@ public class MlmQolPluginTest
 	{
 		enterMlm();
 
-		// The animation clearing between swings is not a stop, however many cycles it goes on for.
 		mineForSwings(30, IDLE_DELAY_TICKS - 1);
 
 		verify(notifier, never()).notify(any(Notification.class), anyString());
 
-		// A real stop still lands.
 		tick(IDLE_DELAY_TICKS);
 		verify(notifier).notify(any(Notification.class), anyString());
 	}
@@ -1336,7 +1263,6 @@ public class MlmQolPluginTest
 
 		verify(notifier, times(1)).notify(any(Notification.class), anyString());
 
-		// Picking the next vein back up arms it again.
 		mineThenStop();
 		verify(notifier, times(2)).notify(any(Notification.class), anyString());
 	}
@@ -1407,7 +1333,6 @@ public class MlmQolPluginTest
 		animating(MINING_ANIMATION);
 		tick(3);
 
-		// Teleporting out stops the animation, but that is not a stop worth waking up for.
 		animating(IDLE_ANIMATION);
 		leaveMlm();
 		tick(20);
@@ -1436,7 +1361,6 @@ public class MlmQolPluginTest
 		animating(MINING_ANIMATION);
 		tick(3);
 
-		// Off to the hopper — the player knows they stopped mining.
 		click("Deposit", MenuAction.GAME_OBJECT_FIRST_OPTION);
 		animating(IDLE_ANIMATION);
 		tick(20);
@@ -1451,7 +1375,6 @@ public class MlmQolPluginTest
 		animating(MINING_ANIMATION);
 		tick(3);
 
-		// The abandoned swing is still being reported after the click has been handled.
 		click("Walk here", MenuAction.WALK);
 		animating(MINING_ANIMATION);
 		tick(1);
@@ -1468,13 +1391,11 @@ public class MlmQolPluginTest
 		animating(MINING_ANIMATION);
 		tick(3);
 
-		// Clicking the next vein skips the alert for the vein being left behind.
 		click("Mine", MenuAction.GAME_OBJECT_FIRST_OPTION);
 		animating(IDLE_ANIMATION);
 		tick(5);
 		verify(notifier, never()).notify(any(Notification.class), anyString());
 
-		// Mining it, then running it dry, is a stop the player did not ask for.
 		mineThenStop();
 		verify(notifier).notify(any(Notification.class), anyString());
 	}
@@ -1486,7 +1407,6 @@ public class MlmQolPluginTest
 		animating(MINING_ANIMATION);
 		tick(3);
 
-		// Eating, dropping, switching tabs: none of it stops you mining, so none of it suppresses.
 		click("Eat", MenuAction.CC_OP);
 		click("Toggle Run", MenuAction.CC_OP_LOW_PRIORITY);
 		click("Examine", MenuAction.EXAMINE_OBJECT);

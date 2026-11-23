@@ -20,16 +20,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers what the hopper highlight says and in which colour. The overlay runs every frame, so the
- * cheap gate has to come before anything that walks the scene.
- */
 public class HopperOverlayTest
 {
 	private static final String STOPPED_TEXT = "Strut broken";
 	private static final String IN_TRANSIT_TEXT = "Ore in transit";
-	// Part-transparent, so the outline colour is distinguishable from the text colour: OverlayUtil
-	// draws the polygon in the configured colour but forces text to full alpha.
 	private static final Color STOPPED_COLOR = new Color(255, 0, 0, 180);
 	private static final Color IN_TRANSIT_COLOR = new Color(255, 152, 31, 180);
 	private static final int LINE_HEIGHT = 12;
@@ -79,8 +73,6 @@ public class HopperOverlayTest
 		when(plugin.hasPayDirtInTransit()).thenReturn(inTransit);
 	}
 
-	// ---- what it says --------------------------------------------------------------------------
-
 	@Test
 	public void aStoppedBeltReportsTheBrokenStrut()
 	{
@@ -115,8 +107,6 @@ public class HopperOverlayTest
 
 		verify(graphics, never()).drawString(eq(STOPPED_TEXT), anyInt(), eq(TEXT_Y + LINE_HEIGHT));
 	}
-
-	// ---- colours -------------------------------------------------------------------------------
 
 	private static Color opaque(Color color)
 	{
@@ -160,10 +150,6 @@ public class HopperOverlayTest
 		verify(graphics, never()).setColor(STOPPED_COLOR);
 	}
 
-	// ---- gating --------------------------------------------------------------------------------
-	// What counts as a problem is the plugin's decision, covered in MlmQolPluginTest. The overlay
-	// only has to honour the answer.
-
 	@Test
 	public void theHopperIsDrawnWhenFlagged()
 	{
@@ -200,8 +186,6 @@ public class HopperOverlayTest
 	@Test
 	public void nothingIsDrawnWhenNeitherProblemApplies()
 	{
-		// Defensive: shouldFlagHopper() and the two problems are read separately, so a state where
-		// the hopper is flagged but nothing is wrong must not draw an empty highlight.
 		stopped(false);
 		inTransit(false);
 
@@ -209,8 +193,6 @@ public class HopperOverlayTest
 
 		verify(graphics, never()).draw(any());
 	}
-
-	// ---- broken struts -------------------------------------------------------------------------
 
 	private Shape brokenStrut()
 	{
@@ -235,8 +217,6 @@ public class HopperOverlayTest
 	@Test
 	public void aSingleBrokenStrutIsOutlinedEvenThoughTheBeltKeepsRunning()
 	{
-		// One broken strut does not stop the belt, so nothing flags the hopper — but the strut still
-		// wants repairing and must be drawn on its own account.
 		when(config.highlightBrokenStruts()).thenReturn(true);
 		when(plugin.shouldFlagHopper()).thenReturn(false);
 		Shape strutClickbox = brokenStrut();
@@ -272,8 +252,6 @@ public class HopperOverlayTest
 
 		verify(graphics, never()).draw(any());
 	}
-
-	// ---- misc ----------------------------------------------------------------------------------
 
 	@Test
 	public void hopperWithNoClickboxIsSkippedRatherThanCrashing()
