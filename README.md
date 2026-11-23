@@ -61,7 +61,8 @@ strut.
 **Stopped mining** fires the moment you stop swinging at a vein. Stops you make yourself, such as
 walking off or clicking the hopper, don't notify. **Sack full while mining** fires when you're mining
 with the sack at the block count, whether you reached it mid-swing or right-clicked Mine on a full
-sack, so you can stop before mining pay-dirt it can't take.
+sack, and again for each pay-dirt you mine past it. Filling your inventory at exactly the block count
+is a normal full load and doesn't notify.
 
 Both are RuneLite notifications. Use the cog next to each option to pick the sound, volume, tray
 message, flash and whether it fires while the client is focused. Custom sounds go in
@@ -70,7 +71,7 @@ message, flash and whether it fires while the client is focused. Custom sounds g
 | Option | Default | Description |
 | --- | --- | --- |
 | Stopped mining | on | Notifies you whenever you stop mining |
-| Sack full while mining | on | Notifies you when you're mining with the sack at the block count and room left in your inventory |
+| Sack full while mining | on | Notifies you when you start mining with the sack at the block count, and again for each pay-dirt you mine past it |
 
 ## Name the baby mole
 

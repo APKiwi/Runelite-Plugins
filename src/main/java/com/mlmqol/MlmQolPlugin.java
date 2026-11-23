@@ -379,9 +379,10 @@ public class MlmQolPlugin extends Plugin
 	{
 		if (inMlm && event.getContainerId() == InventoryID.INV)
 		{
+			int carried = sackTracker.getCarriedPayDirt();
 			sackTracker.refreshInventory(client);
 			updateSackFull();
-			checkOverfill();
+			checkOverfill(sackTracker.getCarriedPayDirt() > carried);
 		}
 	}
 
@@ -401,7 +402,7 @@ public class MlmQolPlugin extends Plugin
 
 		updateSackFull();
 		checkMiningStopped();
-		checkOverfill();
+		checkOverfill(false);
 	}
 
 	@Subscribe
@@ -516,11 +517,13 @@ public class MlmQolPlugin extends Plugin
 		return sackTracker.isFull(blockAt) || config.blockOnFullLoad() && sackTracker.isFullLoadTooBig(blockAt);
 	}
 
-	private void checkOverfill()
+	private void checkOverfill(boolean gainedPayDirt)
 	{
-		boolean overfilling = miningIdleTracker.isMining() && sackTracker.isFull(config.blockAtCount())
-			&& sackTracker.getFullLoad() > sackTracker.getCarriedPayDirt();
-		if (overfilling && !overfillNotified)
+		int used = sackTracker.getUsed();
+		int limit = sackTracker.limit(config.blockAtCount());
+		boolean roomToMine = sackTracker.getFullLoad() > sackTracker.getCarriedPayDirt();
+		boolean overfilling = miningIdleTracker.isMining() && used >= limit && roomToMine;
+		if (gainedPayDirt && used >= limit && (roomToMine || used > limit) || overfilling && !overfillNotified)
 		{
 			notifier.notify(config.sackFullNotification(), "Your sack is full, stop mining.");
 		}

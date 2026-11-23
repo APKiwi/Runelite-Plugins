@@ -1301,7 +1301,7 @@ public class MlmQolPluginTest
 	}
 
 	@Test
-	public void miningIntoAFullSackNotifiesOncePerSession()
+	public void startingToMineIntoAFullSackNotifiesOnceUntilMiningStops()
 	{
 		enterMlm();
 		fillSack();
@@ -1315,6 +1315,41 @@ public class MlmQolPluginTest
 		tick(1);
 
 		verify(notifier, times(2)).notify(any(Notification.class), contains("sack is full"));
+	}
+
+	@Test
+	public void eachPayDirtMinedPastTheBlockCountNotifiesAgain()
+	{
+		enterMlm();
+		deposited(100);
+		sackVarbitChanged();
+		animating(MINING_ANIMATION);
+
+		carrying(8);
+		inventoryChanged();
+		tick(2);
+		carrying(9);
+		inventoryChanged();
+		carrying(10);
+		inventoryChanged();
+
+		verify(notifier, times(3)).notify(any(Notification.class), contains("sack is full"));
+	}
+
+	@Test
+	public void miningPastTheBlockCountIntoAFullInventoryNotifies()
+	{
+		otherItems = 1;
+		carrying(0);
+		enterMlm();
+		deposited(82);
+		sackVarbitChanged();
+		animating(MINING_ANIMATION);
+
+		carrying(27);
+		inventoryChanged();
+
+		verify(notifier).notify(any(Notification.class), contains("sack is full"));
 	}
 
 	@Test
