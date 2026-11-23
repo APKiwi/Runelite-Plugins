@@ -51,6 +51,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -113,6 +114,7 @@ public class MlmQolPluginTest
 		when(config.warnInChat()).thenReturn(true);
 		when(config.blockDepositWhenBlocked()).thenReturn(true);
 		when(config.miningStoppedNotification()).thenReturn(Notification.ON);
+		when(config.sackFullNotification()).thenReturn(Notification.ON);
 
 		when(client.getItemContainer(InventoryID.INV)).thenReturn(inventory);
 		when(client.getTopLevelWorldView()).thenReturn(worldView);
@@ -1337,6 +1339,45 @@ public class MlmQolPluginTest
 		// Picking the next vein back up arms it again.
 		mineThenStop();
 		verify(notifier, times(2)).notify(any(Notification.class), anyString());
+	}
+
+	@Test
+	public void fillingTheSackWhileMiningNotifies()
+	{
+		enterMlm();
+		deposited(100);
+		sackVarbitChanged();
+		animating(MINING_ANIMATION);
+
+		carrying(8);
+		inventoryChanged();
+
+		verify(notifier).notify(eq(Notification.ON), contains("sack is full"));
+	}
+
+	@Test
+	public void aFullSackWhileNotMiningDoesNotNotify()
+	{
+		enterMlm();
+		fillSack();
+
+		verify(notifier, never()).notify(any(Notification.class), contains("sack is full"));
+	}
+
+	@Test
+	public void aFullInventoryDoesNotNotifyTheSackIsFull()
+	{
+		otherItems = 1;
+		carrying(0);
+		enterMlm();
+		deposited(81);
+		sackVarbitChanged();
+		animating(MINING_ANIMATION);
+
+		carrying(27);
+		inventoryChanged();
+
+		verify(notifier, never()).notify(any(Notification.class), contains("sack is full"));
 	}
 
 	@Test

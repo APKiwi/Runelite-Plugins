@@ -56,16 +56,20 @@ strut.
 | Broken wheel colour | red | Colour of the broken strut outline and the `Strut broken` label |
 | Ore in transit colour | orange | Colour of the `Ore in transit` label |
 
-## Notify when you stop mining
+## Notifications
 
-Sends a RuneLite notification the moment you stop swinging at a vein. Stops you make yourself, such
-as walking off or clicking the hopper, don't notify. Use the cog next to the option to pick the sound,
-volume, tray message, flash and whether it fires while the client is focused. Custom sounds go in
+**Stopped mining** fires the moment you stop swinging at a vein. Stops you make yourself, such as
+walking off or clicking the hopper, don't notify. **Sack full while mining** fires when the sack reaches
+the block count while you're still mining, so you can stop before mining pay-dirt it can't take.
+
+Both are RuneLite notifications. Use the cog next to each option to pick the sound, volume, tray
+message, flash and whether it fires while the client is focused. Custom sounds go in
 `.runelite/notifications`.
 
 | Option | Default | Description |
 | --- | --- | --- |
 | Stopped mining | on | Notifies you whenever you stop mining |
+| Sack full while mining | on | Notifies you when the sack reaches the block count while you're still mining with room in your inventory |
 
 ## Name the baby mole
 

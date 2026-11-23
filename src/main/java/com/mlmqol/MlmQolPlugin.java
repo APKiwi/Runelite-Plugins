@@ -485,6 +485,11 @@ public class MlmQolPlugin extends Plugin
 			sackTracker.getDeposited(), sackTracker.getInTransit(), sackTracker.getCarriedPayDirt(),
 			sackTracker.getFullLoad(), limit);
 
+		if (full && miningIdleTracker.isMining() && sackTracker.getFullLoad() > sackTracker.getCarriedPayDirt())
+		{
+			notifier.notify(config.sackFullNotification(), "Your sack is full, stop mining.");
+		}
+
 		if (!config.warnInChat())
 		{
 			return;

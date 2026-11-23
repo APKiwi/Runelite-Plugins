@@ -25,6 +25,7 @@ public interface MlmQolConfig extends Config
 	String ORE_IN_TRANSIT_COLOR = "oreInTransitColor";
 	// Kept from the old sound toggle, NotificationSerializer reads its stored true or false as on or off.
 	String MINING_STOPPED_NOTIFICATION = "playWakeUpSound";
+	String SACK_FULL_NOTIFICATION = "sackFullNotification";
 
 	@ConfigSection(
 		name = "Sack",
@@ -164,6 +165,19 @@ public interface MlmQolConfig extends Config
 		section = NOTIFICATIONS_SECTION
 	)
 	default Notification miningStoppedNotification()
+	{
+		return Notification.ON;
+	}
+
+	@ConfigItem(
+		keyName = SACK_FULL_NOTIFICATION,
+		name = "Sack full while mining",
+		description = "Notifies you when the sack reaches the block count while you're still mining with room "
+			+ "in your inventory, so you can stop",
+		position = 2,
+		section = NOTIFICATIONS_SECTION
+	)
+	default Notification sackFullNotification()
 	{
 		return Notification.ON;
 	}
