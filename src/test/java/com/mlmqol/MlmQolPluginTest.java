@@ -10,7 +10,6 @@ import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.IndexedObjectSet;
 import net.runelite.api.ItemContainer;
-import net.runelite.api.Menu;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
@@ -47,12 +46,12 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -85,13 +84,13 @@ public class MlmQolPluginTest
 	private MlmQolConfig config;
 	private Notifier notifier;
 	private Player localPlayer;
-	private Menu menu;
 	private ItemContainer inventory;
 	private WorldView worldView;
 	private Scene scene;
 
 	private MlmQolPlugin plugin;
 	private int otherItems;
+	private int deprioritized;
 
 	@Before
 	public void setUp() throws Exception
@@ -105,7 +104,6 @@ public class MlmQolPluginTest
 		config = mock(MlmQolConfig.class);
 		notifier = mock(Notifier.class);
 		localPlayer = mock(Player.class);
-		menu = mock(Menu.class);
 		inventory = mock(ItemContainer.class);
 		worldView = mock(WorldView.class);
 		scene = mock(Scene.class);
@@ -116,7 +114,6 @@ public class MlmQolPluginTest
 		when(config.blockDepositWhenBlocked()).thenReturn(true);
 		when(config.miningStoppedNotification()).thenReturn(Notification.ON);
 
-		when(client.getMenu()).thenReturn(menu);
 		when(client.getItemContainer(InventoryID.INV)).thenReturn(inventory);
 		when(client.getTopLevelWorldView()).thenReturn(worldView);
 		when(client.getLocalPlayer()).thenReturn(localPlayer);
@@ -326,6 +323,11 @@ public class MlmQolPluginTest
 		when(entry.getOption()).thenReturn(option);
 		when(entry.getIdentifier()).thenReturn(objectId);
 		when(entry.getType()).thenReturn(type);
+		when(entry.setDeprioritized(true)).thenAnswer(i ->
+		{
+			deprioritized++;
+			return entry;
+		});
 		return entry;
 	}
 
@@ -368,7 +370,7 @@ public class MlmQolPluginTest
 
 		MenuEntry entry = addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu).removeMenuEntry(entry);
+		verify(entry).setDeprioritized(true);
 	}
 
 	@Test
@@ -380,7 +382,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -394,7 +396,7 @@ public class MlmQolPluginTest
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_MIDDLE);
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_RIGHT);
 
-		verify(menu, times(4)).removeMenuEntry(any());
+		assertEquals(4, deprioritized);
 	}
 
 	@Test
@@ -406,7 +408,7 @@ public class MlmQolPluginTest
 		addMenuEntry("Prospect", ObjectID.MOTHERLODE_ORE_SINGLE);
 		addMenuEntry("Walk here", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -418,7 +420,7 @@ public class MlmQolPluginTest
 		// An ordinary rock elsewhere in the scene.
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ROCKFALL_1);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -431,7 +433,7 @@ public class MlmQolPluginTest
 		MenuEntry entry = menuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE, MenuAction.WIDGET_TARGET_ON_GAME_OBJECT);
 		plugin.onMenuEntryAdded(new MenuEntryAdded(entry));
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -443,7 +445,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -455,7 +457,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -468,7 +470,7 @@ public class MlmQolPluginTest
 		sackVarbitChanged();
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -487,7 +489,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, atLeastOnce()).removeMenuEntry(any());
+		assertTrue(deprioritized > 0);
 	}
 
 	@Test
@@ -501,7 +503,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -514,7 +516,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -530,7 +532,7 @@ public class MlmQolPluginTest
 
 		MenuEntry entry = addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu).removeMenuEntry(entry);
+		verify(entry).setDeprioritized(true);
 	}
 
 	@Test
@@ -546,7 +548,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -560,7 +562,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -648,7 +650,7 @@ public class MlmQolPluginTest
 
 		MenuEntry entry = addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu).removeMenuEntry(entry);
+		verify(entry).setDeprioritized(true);
 	}
 
 	@Test
@@ -665,7 +667,7 @@ public class MlmQolPluginTest
 
 		MenuEntry entry = addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu).removeMenuEntry(entry);
+		verify(entry).setDeprioritized(true);
 	}
 
 	@Test
@@ -681,7 +683,7 @@ public class MlmQolPluginTest
 
 		MenuEntry entry = addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu).removeMenuEntry(entry);
+		verify(entry).setDeprioritized(true);
 	}
 
 	@Test
@@ -695,7 +697,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -707,7 +709,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -724,7 +726,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -740,7 +742,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -751,7 +753,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -764,12 +766,12 @@ public class MlmQolPluginTest
 
 		// Stopped, room to spare, and nothing of yours stranded.
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 
 		strandPayDirt(27);
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -782,7 +784,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -795,7 +797,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 		assertTrue("the hopper is still flagged, just not blocked", plugin.shouldFlagHopper());
 	}
 
@@ -809,7 +811,7 @@ public class MlmQolPluginTest
 		addMenuEntry("Examine", ObjectID.MOTHERLODE_HOPPER);
 		addMenuEntry("Walk here", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -822,7 +824,7 @@ public class MlmQolPluginTest
 		// Some other object that happens to offer a Deposit option.
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_SACK);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -834,7 +836,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -846,7 +848,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	// ---- capacity upgrade ----------------------------------------------------------------------
@@ -861,12 +863,12 @@ public class MlmQolPluginTest
 		upgradeVarbitChanged();
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 
 		deposited(SACK_LARGE_SIZE);
 		sackVarbitChanged();
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -880,7 +882,7 @@ public class MlmQolPluginTest
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	// ---- struts and the hopper -----------------------------------------------------------------
@@ -1166,7 +1168,7 @@ public class MlmQolPluginTest
 		plugin.startUp();
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -1226,7 +1228,7 @@ public class MlmQolPluginTest
 
 		// No longer in the mine as far as the plugin is concerned, so nothing is blocked.
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 	}
 
 	@Test
@@ -1254,7 +1256,7 @@ public class MlmQolPluginTest
 		deposited(60);
 		sackVarbitChanged();
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 
 		when(config.blockAtCount()).thenReturn(50);
 		ConfigChanged configChanged = new ConfigChanged();
@@ -1264,7 +1266,7 @@ public class MlmQolPluginTest
 		plugin.onConfigChanged(configChanged);
 
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	@Test
@@ -1279,12 +1281,12 @@ public class MlmQolPluginTest
 		// inventory and must not be read as one.
 		plugin.onItemContainerChanged(new ItemContainerChanged(InventoryID.BANK, inventory));
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
-		verify(menu, never()).removeMenuEntry(any());
+		assertEquals(0, deprioritized);
 
 		// The real inventory does count.
 		inventoryChanged();
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
-		verify(menu).removeMenuEntry(any());
+		assertEquals(1, deprioritized);
 	}
 
 	// ---- wake up sound -------------------------------------------------------------------------

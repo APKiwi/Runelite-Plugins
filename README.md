@@ -4,23 +4,23 @@ Quality of life for the [Motherlode Mine](https://oldschool.runescape.wiki/w/Mot
 
 ## Stop mining when the sack is full
 
-Once your [sack](https://oldschool.runescape.wiki/w/Sack_(Motherlode_Mine)) has no room left, the
-`Mine` option is removed from [ore veins](https://oldschool.runescape.wiki/w/Ore_vein) so you can't
-keep mining pay-dirt you'd have nowhere to put. The option comes back as soon as you collect from
-the sack.
+Once your [sack](https://oldschool.runescape.wiki/w/Sack_(Motherlode_Mine)) has no room left,
+left-clicking an [ore vein](https://oldschool.runescape.wiki/w/Ore_vein) walks instead of mining, so you
+don't keep mining pay-dirt you'd have nowhere to put. `Mine` stays in the right-click menu, and
+left-click mining comes back as soon as you collect from the sack.
 
 Pay-dirt you're carrying and pay-dirt still travelling the conveyor belt both count, so mining stops
 the moment you empty a load into the hopper rather than seconds later when the belt catches up.
 
-**Block when a full load won't fit** stops you starting a load the sack can't take. It blocks once the
-sack plus your pay-dirt on the belt, plus a full inventory (your free slots, so 27 with a pickaxe in
-the inventory and 26 with a hammer too), would pass the block count.
+**Count free inventory slots** stops you starting a load the sack can't take. Your free slots count
+as pay-dirt too (27 with a pickaxe in the inventory, 26 with a hammer as well), so mining stops once
+the sack and ore in transit leave less room than a full inventory.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| Block mining when full | on | Removes the `Mine` option from ore veins once the sack reaches the block count |
+| Deprioritise Mine when full | on | Makes `Walk here` the left-click option on ore veins once the sack reaches the block count |
 | Block at | 189 | Pay-dirt count to stop mining at, capped at what your sack holds |
-| Block when a full load won't fit | off | Also blocks once the sack and the belt leave less room than a full inventory of pay-dirt |
+| Count free inventory slots | off | Counts free slots as pay-dirt too, so mining stops when a full load won't fit |
 | Warn in chat | on | Sends a chat message when the block count is reached and when the sack has room again |
 
 Sack capacity is 108, or 189 after buying the upgrade from Prospector Percy. **Block at** is capped at
@@ -44,14 +44,14 @@ The hopper is labelled with what's going on:
 Broken struts are outlined too, including a single broken strut — the belt keeps running on the
 other wheel, but the outline shows you which one to repair.
 
-`Deposit` is hidden only when the belt is stopped *and* there's no room for another load — either
-your pay-dirt is already stranded on the belt, or the sack is full. Pay-dirt in your inventory
+`Deposit` is deprioritised only when the belt is stopped *and* there's no room for another load:
+either your pay-dirt is already stranded on the belt, or the sack is full. Pay-dirt in your inventory
 doesn't count: a stopped belt with room in the sack still takes it and carries it once you repair a
 strut.
 
 | Option | Default | Description |
 | --- | --- | --- |
-| Block deposit when blocked | on | Removes the `Deposit` option while the belt is stopped and there is no room for another load |
+| Deprioritise Deposit when blocked | on | Makes `Walk here` the left-click option on the hopper while the belt is stopped and there is no room for another load |
 | Highlight broken struts | on | Outlines any broken strut, so you can see which one needs repairing |
 | Broken wheel colour | red | Colour of the broken strut outline and the `Strut broken` label |
 | Ore in transit colour | orange | Colour of the `Ore in transit` label |

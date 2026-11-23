@@ -56,8 +56,9 @@ public interface MlmQolConfig extends Config
 
 	@ConfigItem(
 		keyName = BLOCK_MINING,
-		name = "Block mining when full",
-		description = "Removes the Mine option from ore veins once the sack reaches the block count",
+		name = "Deprioritise Mine when full",
+		description = "Makes Walk here the left-click option on ore veins once the sack reaches the block count. "
+			+ "Mine stays in the right-click menu.",
 		position = 1,
 		section = SACK_SECTION
 	)
@@ -81,9 +82,9 @@ public interface MlmQolConfig extends Config
 
 	@ConfigItem(
 		keyName = BLOCK_ON_FULL_LOAD,
-		name = "Block when a full load won't fit",
-		description = "Also blocks mining once the sack plus your pay-dirt on the belt leave less room than a full "
-			+ "inventory of pay-dirt, counting your free slots",
+		name = "Count free inventory slots",
+		description = "Counts your free inventory slots as pay-dirt too, so mining stops once the sack and ore in "
+			+ "transit leave less room than a full inventory",
 		position = 3,
 		section = SACK_SECTION
 	)
@@ -106,8 +107,8 @@ public interface MlmQolConfig extends Config
 
 	@ConfigItem(
 		keyName = BLOCK_DEPOSIT_WHEN_BLOCKED,
-		name = "Block deposit when blocked",
-		description = "Removes the Deposit option from the hopper while it is flagged and the sack has no room "
+		name = "Deprioritise Deposit when blocked",
+		description = "Makes Walk here the left-click option on the hopper while it is flagged and the sack has no room "
 			+ "left, so pay-dirt can't be fed into a belt that won't carry it",
 		position = 1,
 		section = HOPPER_SECTION

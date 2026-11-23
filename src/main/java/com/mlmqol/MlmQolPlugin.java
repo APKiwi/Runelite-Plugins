@@ -420,7 +420,7 @@ public class MlmQolPlugin extends Plugin
 		if (ORE_VEINS.contains(objectId) && MINE_OPTION.equals(option) && sackFull && config.blockMining()
 			|| objectId == ObjectID.MOTHERLODE_HOPPER && DEPOSIT_OPTION.equals(option) && isDepositBlocked())
 		{
-			client.getMenu().removeMenuEntry(entry);
+			entry.setDeprioritized(true);
 		}
 	}
 
@@ -492,17 +492,17 @@ public class MlmQolPlugin extends Plugin
 
 		if (!full)
 		{
-			sendChatMessage("Your sack has room again - mining is re-enabled.");
+			sendChatMessage("Your sack has room again.");
 		}
 		else if (sackTracker.isFull(config.blockAtCount()))
 		{
 			sendChatMessage("Sack limit reached (" + sackTracker.getUsed() + "/" + limit
-				+ ") - mining is blocked until you collect from the sack.");
+				+ "), empty it before mining more.");
 		}
 		else
 		{
 			sendChatMessage("Sack only has room for " + (limit - sackTracker.getCommitted()) + " more, less than a full load ("
-				+ sackTracker.getFullLoad() + ") - mining is blocked until you collect from the sack.");
+				+ sackTracker.getFullLoad() + "), empty it before mining more.");
 		}
 	}
 
