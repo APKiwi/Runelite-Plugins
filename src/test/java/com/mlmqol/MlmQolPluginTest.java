@@ -551,7 +551,7 @@ public class MlmQolPluginTest
 		breakBothStruts();
 
 		assertTrue("still in transit, now going nowhere", plugin.hasPayDirtInTransit());
-		assertTrue(plugin.hasStuckPayDirt());
+		assertTrue(plugin.isMachineryStopped());
 	}
 
 	@Test
@@ -574,18 +574,6 @@ public class MlmQolPluginTest
 		spawnGameObject(ObjectID.MOTHERLODE_WHEEL_STRUT_BROKEN);
 
 		assertFalse("one broken strut is not a stopped belt", plugin.shouldFlagHopper());
-	}
-
-	@Test
-	public void stuckIsTheStricterOfTheTwo()
-	{
-		// hasStuckPayDirt drives the Deposit block and needs both; hasPayDirtInTransit drives the
-		// overlay line and needs only the pay-dirt.
-		enterMlm();
-		strandPayDirt(27);
-
-		assertTrue(plugin.hasPayDirtInTransit());
-		assertFalse(plugin.hasStuckPayDirt());
 	}
 
 	// ---- hiding the Deposit option -------------------------------------------------------------
@@ -1080,30 +1068,6 @@ public class MlmQolPluginTest
 	// ---- stuck pay-dirt ------------------------------------------------------------------------
 
 	@Test
-	public void payDirtIsOnlyStuckWhenTheBeltIsAlsoStopped()
-	{
-		enterMlm();
-		carrying(27);
-		inventoryChanged();
-		carrying(0);
-		inventoryChanged();
-
-		assertFalse("the belt is running, so it is on its way, not stuck", plugin.hasStuckPayDirt());
-
-		breakBothStruts();
-		assertTrue(plugin.hasStuckPayDirt());
-	}
-
-	@Test
-	public void aStoppedBeltWithNothingOnItIsNotStuck()
-	{
-		enterMlm();
-		breakBothStruts();
-
-		assertFalse(plugin.hasStuckPayDirt());
-	}
-
-	@Test
 	public void strandedPayDirtIsNotWrittenOffWhileTheBeltIsStopped()
 	{
 		// The write-off exists so dropped pay-dirt can't block mining forever, but a stopped belt is
@@ -1117,7 +1081,7 @@ public class MlmQolPluginTest
 
 		tick(60);
 
-		assertTrue(plugin.hasStuckPayDirt());
+		assertTrue(plugin.hasPayDirtInTransit());
 	}
 
 	@Test
@@ -1135,7 +1099,7 @@ public class MlmQolPluginTest
 		despawnGameObject(broken);
 		tick(60);
 
-		assertFalse(plugin.hasStuckPayDirt());
+		assertFalse(plugin.hasPayDirtInTransit());
 	}
 
 	// ---- chat warnings -------------------------------------------------------------------------
@@ -1268,13 +1232,13 @@ public class MlmQolPluginTest
 		carrying(0);
 		inventoryChanged();
 		breakBothStruts();
-		assertTrue(plugin.hasStuckPayDirt());
+		assertTrue(plugin.hasPayDirtInTransit());
 
 		leaveMlm();
 		enterMlm();
 
 		assertFalse("stale in-transit pay-dirt from the last visit must not carry over",
-			plugin.hasStuckPayDirt());
+			plugin.hasPayDirtInTransit());
 	}
 
 	@Test

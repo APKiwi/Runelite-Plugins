@@ -7,18 +7,10 @@ import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.audio.AudioPlayer;
 
-/**
- * Plays the bundled wake-up sound.
- *
- * <p>Playback opens an audio line and reads the clip, so it is handed to a single-threaded executor
- * rather than run on the client thread. One thread also means a burst of alerts queues up instead of
- * overlapping.
- */
 @Slf4j
 @Singleton
 class WakeUpSound
 {
-	/** Resolved against this package, so it lives in {@code src/main/resources/com/mlmqol}. */
 	private static final String SOUND_FILE = "wake_up.wav";
 
 	private final AudioPlayer audioPlayer;
@@ -44,9 +36,6 @@ class WakeUpSound
 		}
 	}
 
-	/**
-	 * @param volume 0 (silent, nothing plays) to 100 (the clip's own level)
-	 */
 	void play(int volume)
 	{
 		if (executor == null || executor.isShutdown() || volume <= 0)
@@ -68,14 +57,8 @@ class WakeUpSound
 		});
 	}
 
-	/** Maps a 0-100 volume onto the decibel gain {@link AudioPlayer} expects. */
 	static float volumeToGain(int volume)
 	{
-		if (volume <= 0)
-		{
-			return -80f;
-		}
-
-		return 20f * (float) Math.log10(volume / 100f);
+		return volume <= 0 ? -80f : 20f * (float) Math.log10(volume / 100f);
 	}
 }

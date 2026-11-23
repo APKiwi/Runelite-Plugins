@@ -14,10 +14,6 @@ import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 
-/**
- * Marks any broken strut, and marks the hopper while something is worth knowing about it, saying
- * which thing: a strut needs repairing, your pay-dirt is still on the belt, or both at once.
- */
 class HopperOverlay extends Overlay
 {
 	private static final String STOPPED_TEXT = "Strut broken";
@@ -38,8 +34,6 @@ class HopperOverlay extends Overlay
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
-		// Independent of the hopper: a single broken strut is worth pointing out even though the belt
-		// keeps running on the other wheel.
 		if (config.highlightBrokenStruts())
 		{
 			for (TileObject strut : plugin.getBrokenStruts())
@@ -77,8 +71,6 @@ class HopperOverlay extends Overlay
 			return null;
 		}
 
-		// One outline for the hopper, in the colour of the first thing that is wrong with it.
-		Color outlineColor = colors.get(0);
 		int lineHeight = texts.size() > 1 ? graphics.getFontMetrics().getHeight() : 0;
 
 		for (TileObject hopper : plugin.getHoppers())
@@ -86,24 +78,19 @@ class HopperOverlay extends Overlay
 			Shape clickbox = hopper.getClickbox();
 			if (clickbox == null)
 			{
-				// Off screen or not rendered this frame.
 				continue;
 			}
 
-			OverlayUtil.renderPolygon(graphics, clickbox, outlineColor);
+			OverlayUtil.renderPolygon(graphics, clickbox, colors.get(0));
 
 			for (int i = 0; i < texts.size(); i++)
 			{
 				String text = texts.get(i);
 				Point location = hopper.getCanvasTextLocation(graphics, text, 0);
-				if (location == null)
+				if (location != null)
 				{
-					continue;
+					OverlayUtil.renderTextLocation(graphics, new Point(location.getX(), location.getY() + i * lineHeight), text, colors.get(i));
 				}
-
-				// Each line is centred on its own width, then stacked downwards.
-				Point stacked = new Point(location.getX(), location.getY() + i * lineHeight);
-				OverlayUtil.renderTextLocation(graphics, stacked, text, colors.get(i));
 			}
 		}
 

@@ -11,10 +11,6 @@ import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 import net.runelite.client.util.Text;
 
-/**
- * Puts a name of your choosing over the baby mole. The plugin only ever tracks moles inside the
- * Motherlode Mine, so this cannot follow a pet around the rest of the game.
- */
 class BabyMoleOverlay extends Overlay
 {
 	private static final int NAME_OFFSET = 40;

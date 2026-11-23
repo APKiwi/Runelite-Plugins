@@ -70,13 +70,7 @@ public class MlmQolPlugin extends Plugin
 	private static final Set<MenuAction> OBJECT_OPTIONS = ImmutableSet.of(MenuAction.GAME_OBJECT_FIRST_OPTION,
 		MenuAction.GAME_OBJECT_SECOND_OPTION, MenuAction.GAME_OBJECT_THIRD_OPTION, MenuAction.GAME_OBJECT_FOURTH_OPTION,
 		MenuAction.GAME_OBJECT_FIFTH_OPTION);
-	/**
-	 * Clicks that send the player off to do something else, and so stop mining on purpose: walking,
-	 * and interacting with an object, NPC, ground item or player. Interface clicks are deliberately
-	 * absent — eating, dropping or switching tabs doesn't stop you mining — and so are Examine and
-	 * Cancel, which send nothing at all. Using an inventory item on something in the world arrives as
-	 * the WIDGET_TARGET_ON_* action; the ITEM_USE_ON_* pairs are deprecated and no longer produced.
-	 */
+	// Interface clicks (eating, dropping, tabs) don't interrupt mining, so they are absent.
 	private static final Set<MenuAction> MANUAL_STOP_ACTIONS = ImmutableSet.<MenuAction>builder()
 		.addAll(OBJECT_OPTIONS)
 		.add(MenuAction.WALK)
@@ -93,16 +87,11 @@ public class MlmQolPlugin extends Plugin
 			MenuAction.PLAYER_SEVENTH_OPTION, MenuAction.PLAYER_EIGHTH_OPTION)
 		.add(MenuAction.WIDGET_TARGET_ON_PLAYER)
 		.build();
-	/**
-	 * The baby mole pet, plus the baby mole NPCs that share its look. Only ever matched while in the
-	 * mine, so a pet being renamed anywhere else is not possible.
-	 */
 	private static final Set<Integer> BABY_MOLES = ImmutableSet.of(NpcID.MOLE_PET, NpcID.MOLE_PET_NAKED,
 		NpcID.MOLE_BABY_01, NpcID.MOLE_BABY_02, NpcID.MOLE_BABY_03);
 
 	private static final String MINE_OPTION = "Mine";
 	private static final String DEPOSIT_OPTION = "Deposit";
-	/** One strut per water wheel. The belt only stops when every one of them is broken. */
 	private static final int STRUT_COUNT = 2;
 
 	@Inject
@@ -139,12 +128,12 @@ public class MlmQolPlugin extends Plugin
 	private final Set<TileObject> hoppers = new HashSet<>();
 	@Getter(AccessLevel.PACKAGE)
 	private final Set<TileObject> brokenStruts = new HashSet<>();
-	private final Set<TileObject> workingStruts = new HashSet<>();
 	@Getter(AccessLevel.PACKAGE)
 	private final Set<NPC> babyMoles = new HashSet<>();
 
 	private boolean inMlm;
 	private boolean sackFull;
+	@Getter(AccessLevel.PACKAGE)
 	private boolean machineryStopped;
 
 	@Provides
@@ -166,15 +155,11 @@ public class MlmQolPlugin extends Plugin
 			if (inMlm)
 			{
 				primeTracker();
-				// Spawn events for the scene we're already standing in have long since fired.
 				scanScene();
 			}
-			// Adopt the current state silently so enabling the plugin doesn't spam a warning. This has
-			// to settle before following the upgrade, since writing config re-evaluates the state.
+			// Set silently before followCapacityUpgrade, whose config write re-evaluates it.
 			sackFull = inMlm && sackTracker.isFull(config.blockAtCount());
 
-			// Not gated on being in the mine: the upgrade is readable from anywhere, and the plugin
-			// usually starts up at the login screen.
 			sackTracker.refreshCapacity(client);
 			followCapacityUpgrade();
 		});
@@ -199,16 +184,13 @@ public class MlmQolPlugin extends Plugin
 		GameState gameState = event.getGameState();
 		if (gameState == GameState.LOADING)
 		{
-			// On region changes the tracked objects get set to null.
 			clearSceneObjects();
-			// A swing left half-finished by the hop out must not alert on arrival.
 			miningIdleTracker.reset();
 
 			boolean wasInMlm = inMlm;
 			inMlm = checkInMlm();
 			if (inMlm && !wasInMlm)
 			{
-				// Anything tracked from a previous visit is stale — start over.
 				primeTracker();
 				followCapacityUpgrade();
 				updateSackFull();
@@ -216,8 +198,7 @@ public class MlmQolPlugin extends Plugin
 		}
 		else if (gameState == GameState.LOGGED_IN)
 		{
-			// Backstop for the varbit handler: re-logging in the same client session doesn't change
-			// the varp, so no VarbitChanged fires and the upgrade would otherwise go unnoticed.
+			// Relogging in the same session doesn't resend an unchanged varbit.
 			sackTracker.refreshCapacity(client);
 			followCapacityUpgrade();
 		}
@@ -231,8 +212,7 @@ public class MlmQolPlugin extends Plugin
 		}
 	}
 
-	// The mine mixes object types — the ore veins are wall objects, for instance — so the hopper and
-	// struts are tracked from every spawn event rather than assuming which kind they are.
+	// The hopper's object type isn't assumed, so every spawn type is watched.
 
 	@Subscribe
 	public void onGameObjectSpawned(GameObjectSpawned event)
@@ -300,18 +280,15 @@ public class MlmQolPlugin extends Plugin
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event)
 	{
-		if (!inMlm || event.getActor() != client.getLocalPlayer())
+		if (inMlm && event.getActor() == client.getLocalPlayer())
 		{
-			return;
+			miningIdleTracker.onAnimationChanged(event.getActor().getAnimation());
 		}
-
-		miningIdleTracker.onAnimationChanged(event.getActor().getAnimation());
 	}
 
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
 	{
-		// Stopping on purpose is not worth an alert, so a click elsewhere drops the swing being watched.
 		if (inMlm && MANUAL_STOP_ACTIONS.contains(event.getMenuAction()))
 		{
 			miningIdleTracker.onManualStop();
@@ -334,10 +311,6 @@ public class MlmQolPlugin extends Plugin
 				brokenStruts.add(object);
 				updateMachineryState();
 				break;
-			case ObjectID.MOTHERLODE_WHEEL_STRUT_FIXED:
-				workingStruts.add(object);
-				updateMachineryState();
-				break;
 		}
 	}
 
@@ -349,19 +322,12 @@ public class MlmQolPlugin extends Plugin
 		}
 
 		hoppers.remove(object);
-
-		boolean wasStrut = brokenStruts.remove(object);
-		wasStrut |= workingStruts.remove(object);
-		if (wasStrut)
+		if (brokenStruts.remove(object))
 		{
 			updateMachineryState();
 		}
 	}
 
-	/**
-	 * Picks up the hopper and struts from the loaded scene. Only run when the plugin is enabled
-	 * mid-session, since after that the spawn and despawn events keep the sets current.
-	 */
 	private void scanScene()
 	{
 		WorldView worldView = client.getTopLevelWorldView();
@@ -405,20 +371,14 @@ public class MlmQolPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event)
 	{
-		// The upgrade varbit is only transmitted during the login varp sync, long before the player is
-		// anywhere near the mine, so this must not be gated on inMlm.
+		// Only sent during the login sync, long before reaching the mine, so not gated on inMlm.
 		if (event.getVarbitId() == VarbitID.MOTHERLODE_BIGGERSACK)
 		{
 			sackTracker.refreshCapacity(client);
 			followCapacityUpgrade();
 		}
 
-		if (!inMlm)
-		{
-			return;
-		}
-
-		if (event.getVarbitId() == VarbitID.MOTHERLODE_SACK_TRANSMIT || event.getVarbitId() == VarbitID.MOTHERLODE_BIGGERSACK)
+		if (inMlm && (event.getVarbitId() == VarbitID.MOTHERLODE_SACK_TRANSMIT || event.getVarbitId() == VarbitID.MOTHERLODE_BIGGERSACK))
 		{
 			sackTracker.refreshSack(client);
 			updateSackFull();
@@ -437,13 +397,11 @@ public class MlmQolPlugin extends Plugin
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
-		if (!inMlm || event.getContainerId() != InventoryID.INV)
+		if (inMlm && event.getContainerId() == InventoryID.INV)
 		{
-			return;
+			sackTracker.refreshInventory(client);
+			updateSackFull();
 		}
-
-		sackTracker.refreshInventory(client);
-		updateSackFull();
 	}
 
 	@Subscribe
@@ -454,8 +412,7 @@ public class MlmQolPlugin extends Plugin
 			return;
 		}
 
-		// The write-off assumes pay-dirt that never arrives was never deposited. A stopped belt is a
-		// legitimate long gap, so don't let it discard pay-dirt that is genuinely stranded out there.
+		// Pay-dirt on a stopped belt is stuck, not lost.
 		if (!machineryStopped)
 		{
 			sackTracker.onTick();
@@ -482,92 +439,43 @@ public class MlmQolPlugin extends Plugin
 		int objectId = event.getIdentifier();
 		String option = Text.removeTags(entry.getOption());
 
-		// Nothing to mine into once the sack is at its block count.
-		if (ORE_VEINS.contains(objectId) && MINE_OPTION.equals(option) && sackFull && config.blockMining())
-		{
-			client.getMenu().removeMenuEntry(entry);
-			return;
-		}
-
-		// Nowhere for it to go: the belt is stopped and the sack has no room for another load.
-		if (objectId == ObjectID.MOTHERLODE_HOPPER && DEPOSIT_OPTION.equals(option) && isDepositBlocked())
+		if (ORE_VEINS.contains(objectId) && MINE_OPTION.equals(option) && sackFull && config.blockMining()
+			|| objectId == ObjectID.MOTHERLODE_HOPPER && DEPOSIT_OPTION.equals(option) && isDepositBlocked())
 		{
 			client.getMenu().removeMenuEntry(entry);
 		}
 	}
 
-	/**
-	 * Two things stop another load going in, and either is enough: pay-dirt already stranded on the
-	 * stopped belt, or a sack with no room left for it. Pay-dirt in the inventory counts towards
-	 * neither — that is the load asking to be deposited, not something in its way.
-	 */
 	private boolean isDepositBlocked()
 	{
-		// Only a stopped belt makes a deposit pointless. While it runs, pay-dirt on it is on its way
-		// out and the sack will have room again shortly.
-		if (!config.blockDepositWhenBlocked() || !machineryStopped)
-		{
-			return false;
-		}
-
-		return hasPayDirtInTransit() || sackTracker.isCommittedFull(config.blockAtCount());
+		return config.blockDepositWhenBlocked() && machineryStopped
+			&& (hasPayDirtInTransit() || sackTracker.isCommittedFull(config.blockAtCount()));
 	}
 
-	/**
-	 * Whether there is anything worth saying about the hopper at all. The overlay runs every frame,
-	 * so it checks this before working out which of the two problems apply.
-	 */
 	boolean shouldFlagHopper()
 	{
 		return machineryStopped || hasPayDirtInTransit();
 	}
 
-	/**
-	 * @return true when pay-dirt of yours is on the belt, whether or not the belt is moving
-	 */
 	boolean hasPayDirtInTransit()
 	{
 		return sackTracker.getInTransit() > 0;
 	}
 
-	/**
-	 * @return true when the belt has stopped, so pay-dirt put in the hopper would not reach the sack
-	 */
-	boolean isMachineryStopped()
-	{
-		return machineryStopped;
-	}
-
-	/**
-	 * @return true when pay-dirt is stranded on a stopped belt, going nowhere until a strut is fixed
-	 */
-	boolean hasStuckPayDirt()
-	{
-		return machineryStopped && sackTracker.getInTransit() > 0;
-	}
-
-	/**
-	 * The two water wheels drive the conveyor belt, and each is held up by a strut. Water only stops
-	 * once both struts are broken — repairing either one starts the belt again.
-	 */
 	private void updateMachineryState()
 	{
 		boolean stopped = brokenStruts.size() >= STRUT_COUNT;
-		if (stopped == machineryStopped)
+		if (stopped != machineryStopped)
 		{
-			return;
+			machineryStopped = stopped;
+			log.debug("Machinery stopped: {}", stopped);
 		}
-
-		machineryStopped = stopped;
-		log.debug("Machinery stopped: {} ({} broken struts, {} working, {} hoppers tracked)", stopped,
-			brokenStruts.size(), workingStruts.size(), hoppers.size());
 	}
 
 	private void clearSceneObjects()
 	{
 		hoppers.clear();
 		brokenStruts.clear();
-		workingStruts.clear();
 		babyMoles.clear();
 		machineryStopped = false;
 	}
@@ -580,11 +488,7 @@ public class MlmQolPlugin extends Plugin
 		sackTracker.prime();
 	}
 
-	/**
-	 * Moves the block count up to the larger sack size once the upgrade is unlocked. A block count of
-	 * 108 always follows the upgrade, whether it was left at the default or set there deliberately —
-	 * only some other value is treated as a deliberate choice and left alone.
-	 */
+	// A block count left at the small sack size follows the upgrade, any other value is the user's choice.
 	private void followCapacityUpgrade()
 	{
 		if (sackTracker.getCapacity() != SackTracker.SACK_LARGE_SIZE)
@@ -593,14 +497,10 @@ public class MlmQolPlugin extends Plugin
 		}
 
 		String stored = configManager.getConfiguration(CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT);
-		if (stored != null && !stored.equals(Integer.toString(SackTracker.SACK_SIZE)))
+		if (stored == null || stored.equals(Integer.toString(SackTracker.SACK_SIZE)))
 		{
-			log.debug("Sack upgrade unlocked but block count is set to {}, leaving it alone", stored);
-			return;
+			configManager.setConfiguration(CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT, SackTracker.SACK_LARGE_SIZE);
 		}
-
-		log.debug("Sack upgrade unlocked, raising block count to {}", SackTracker.SACK_LARGE_SIZE);
-		configManager.setConfiguration(CONFIG_GROUP, MlmQolConfig.BLOCK_AT_COUNT, SackTracker.SACK_LARGE_SIZE);
 	}
 
 	private void updateSackFull()
@@ -610,46 +510,34 @@ public class MlmQolPlugin extends Plugin
 			return;
 		}
 
-		int blockAt = Math.min(config.blockAtCount(), sackTracker.getCapacity());
-		boolean full = sackTracker.isFull(blockAt);
+		int limit = sackTracker.limit(config.blockAtCount());
+		boolean full = sackTracker.isFull(config.blockAtCount());
 		if (full == sackFull)
 		{
 			return;
 		}
 
 		sackFull = full;
-		log.debug("Sack full: {} ({}/{} blocking at {}, {} deposited, {} on the belt, {} carried)", full,
-			sackTracker.getUsed(), sackTracker.getCapacity(), blockAt,
-			sackTracker.getDeposited(), sackTracker.getInTransit(), sackTracker.getCarriedPayDirt());
+		log.debug("Sack full: {} ({} deposited, {} on the belt, {} carried, limit {})", full,
+			sackTracker.getDeposited(), sackTracker.getInTransit(), sackTracker.getCarriedPayDirt(), limit);
 
 		if (config.warnInChat())
 		{
 			sendChatMessage(full
-				? "Sack limit reached (" + sackTracker.getUsed() + "/" + blockAt
+				? "Sack limit reached (" + sackTracker.getUsed() + "/" + limit
 					+ ") - mining is blocked until you collect from the sack."
 				: "Your sack has room again - mining is re-enabled.");
 		}
 	}
 
-	/**
-	 * Alerts once each time mining stops, whatever stopped it — the vein running out, the sack filling
-	 * up, or anything else that interrupts the swing.
-	 */
 	private void checkMiningStopped()
 	{
 		Player local = client.getLocalPlayer();
 		if (local == null)
 		{
 			miningIdleTracker.reset();
-			return;
 		}
-
-		if (!miningIdleTracker.onTick(local.getAnimation()))
-		{
-			return;
-		}
-
-		if (config.playWakeUpSound())
+		else if (miningIdleTracker.onTick(local.getAnimation()) && config.playWakeUpSound())
 		{
 			wakeUpSound.play(config.wakeUpSoundVolume());
 		}
@@ -657,14 +545,9 @@ public class MlmQolPlugin extends Plugin
 
 	private void sendChatMessage(String message)
 	{
-		String formatted = new ChatMessageBuilder()
-			.append(ChatColorType.HIGHLIGHT)
-			.append(message)
-			.build();
-
 		chatMessageManager.queue(QueuedMessage.builder()
 			.type(ChatMessageType.GAMEMESSAGE)
-			.runeLiteFormattedMessage(formatted)
+			.runeLiteFormattedMessage(new ChatMessageBuilder().append(ChatColorType.HIGHLIGHT).append(message).build())
 			.build());
 	}
 
