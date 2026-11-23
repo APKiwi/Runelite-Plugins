@@ -276,7 +276,23 @@ public class MlmQolPlugin extends Plugin
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
 	{
-		if (inMlm && MANUAL_STOP_ACTIONS.contains(event.getMenuAction()))
+		if (!inMlm)
+		{
+			return;
+		}
+
+		MenuAction action = event.getMenuAction();
+		if (event.getId() == ObjectID.MOTHERLODE_HOPPER && (action == MenuAction.WIDGET_TARGET_ON_GAME_OBJECT
+			|| OBJECT_OPTIONS.contains(action) && DEPOSIT_OPTION.equals(Text.removeTags(event.getMenuOption()))))
+		{
+			sackTracker.setDepositing(true);
+		}
+		else if (MANUAL_STOP_ACTIONS.contains(action))
+		{
+			sackTracker.setDepositing(false);
+		}
+
+		if (MANUAL_STOP_ACTIONS.contains(action))
 		{
 			miningIdleTracker.onManualStop();
 		}

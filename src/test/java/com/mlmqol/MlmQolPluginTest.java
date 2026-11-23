@@ -321,6 +321,11 @@ public class MlmQolPluginTest
 		plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry(option, 0, type)));
 	}
 
+	private void depositClicked()
+	{
+		plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry("Deposit", ObjectID.MOTHERLODE_HOPPER, MenuAction.GAME_OBJECT_FIRST_OPTION)));
+	}
+
 	private MenuEntry addMenuEntry(String option, int objectId)
 	{
 		MenuEntry entry = menuEntry(option, objectId, MenuAction.GAME_OBJECT_FIRST_OPTION);
@@ -332,6 +337,7 @@ public class MlmQolPluginTest
 	{
 		carrying(payDirt);
 		inventoryChanged();
+		depositClicked();
 		carrying(0);
 		inventoryChanged();
 	}
@@ -460,6 +466,7 @@ public class MlmQolPluginTest
 		carrying(27);
 		inventoryChanged();
 
+		depositClicked();
 		carrying(0);
 		inventoryChanged();
 
@@ -588,6 +595,48 @@ public class MlmQolPluginTest
 
 		assertTrue("still in transit, now going nowhere", plugin.hasPayDirtInTransit());
 		assertTrue(plugin.isMachineryStopped());
+	}
+
+	@Test
+	public void droppedPayDirtIsNotInTransit()
+	{
+		enterMlm();
+		carrying(27);
+		inventoryChanged();
+
+		carrying(25);
+		inventoryChanged();
+
+		assertFalse(plugin.hasPayDirtInTransit());
+	}
+
+	@Test
+	public void walkingOffAfterClickingDepositCancelsIt()
+	{
+		enterMlm();
+		carrying(27);
+		inventoryChanged();
+		depositClicked();
+		click("Walk here", MenuAction.WALK);
+
+		carrying(25);
+		inventoryChanged();
+
+		assertFalse(plugin.hasPayDirtInTransit());
+	}
+
+	@Test
+	public void usingPayDirtOnTheHopperIsADeposit()
+	{
+		enterMlm();
+		carrying(27);
+		inventoryChanged();
+		plugin.onMenuOptionClicked(new MenuOptionClicked(menuEntry("Use", ObjectID.MOTHERLODE_HOPPER, MenuAction.WIDGET_TARGET_ON_GAME_OBJECT)));
+
+		carrying(0);
+		inventoryChanged();
+
+		assertTrue(plugin.hasPayDirtInTransit());
 	}
 
 	@Test
@@ -1030,6 +1079,7 @@ public class MlmQolPluginTest
 		breakBothStruts();
 		carrying(27);
 		inventoryChanged();
+		depositClicked();
 		carrying(0);
 		inventoryChanged();
 
@@ -1046,6 +1096,7 @@ public class MlmQolPluginTest
 		spawnGameObject(ObjectID.MOTHERLODE_WHEEL_STRUT_BROKEN);
 		carrying(27);
 		inventoryChanged();
+		depositClicked();
 		carrying(0);
 		inventoryChanged();
 		tick(60);
@@ -1173,6 +1224,7 @@ public class MlmQolPluginTest
 		enterMlm();
 		carrying(27);
 		inventoryChanged();
+		depositClicked();
 		carrying(0);
 		inventoryChanged();
 		breakBothStruts();

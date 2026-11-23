@@ -1,6 +1,7 @@
 package com.mlmqol;
 
 import lombok.Getter;
+import lombok.Setter;
 import net.runelite.api.Client;
 import net.runelite.api.ItemContainer;
 import net.runelite.api.gameval.InventoryID;
@@ -12,7 +13,7 @@ class SackTracker
 	static final int SACK_SIZE = 108;
 	static final int SACK_LARGE_SIZE = 189;
 	private static final int INVENTORY_SIZE = 28;
-	// Pay-dirt that leaves the inventory without reaching the sack (dropped) is written off after this.
+	// In-transit pay-dirt that never reaches the sack is written off after this.
 	private static final int IN_TRANSIT_STALE_TICKS = 50;
 
 	@Getter
@@ -26,6 +27,9 @@ class SackTracker
 	@Getter
 	private int inTransit;
 
+	// Only pay-dirt that leaves the inventory after a deposit click is on the belt, the rest was dropped.
+	@Setter
+	private boolean depositing;
 	private boolean primed;
 	private int ticksSinceArrival;
 
@@ -54,10 +58,11 @@ class SackTracker
 		carriedPayDirt = inventory == null ? 0 : inventory.count(ItemID.PAYDIRT);
 		fullLoad = inventory == null ? INVENTORY_SIZE : INVENTORY_SIZE - inventory.count() + carriedPayDirt;
 
-		if (primed && carriedPayDirt < previous)
+		if (primed && depositing && carriedPayDirt < previous)
 		{
 			inTransit += previous - carriedPayDirt;
 			ticksSinceArrival = 0;
+			depositing = false;
 		}
 	}
 
@@ -83,6 +88,7 @@ class SackTracker
 		fullLoad = INVENTORY_SIZE;
 		inTransit = 0;
 		ticksSinceArrival = 0;
+		depositing = false;
 		primed = false;
 	}
 

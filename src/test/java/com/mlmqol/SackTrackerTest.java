@@ -52,6 +52,13 @@ public class SackTrackerTest
 		when(inventory.count()).thenReturn(otherItems + payDirt);
 	}
 
+	private void deposit(int remaining)
+	{
+		tracker.setDepositing(true);
+		carrying(remaining);
+		tracker.refreshInventory(client);
+	}
+
 	private void prime()
 	{
 		tracker.reset();
@@ -90,8 +97,7 @@ public class SackTrackerTest
 		prime();
 		carrying(27);
 		tracker.refreshInventory(client);
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 		assertEquals(27, tracker.getInTransit());
 
 		upgraded(true);
@@ -118,8 +124,7 @@ public class SackTrackerTest
 		carrying(27);
 		prime();
 
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		assertEquals(27, tracker.getInTransit());
 		assertEquals(0, tracker.getCarriedPayDirt());
@@ -130,8 +135,7 @@ public class SackTrackerTest
 	{
 		carrying(27);
 		prime();
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		deposited(27);
 		tracker.refreshSack(client);
@@ -145,8 +149,7 @@ public class SackTrackerTest
 	{
 		carrying(27);
 		prime();
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		deposited(10);
 		tracker.refreshSack(client);
@@ -162,8 +165,7 @@ public class SackTrackerTest
 	{
 		carrying(5);
 		prime();
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		deposited(40);
 		tracker.refreshSack(client);
@@ -177,8 +179,7 @@ public class SackTrackerTest
 		deposited(80);
 		carrying(27);
 		prime();
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 		assertEquals(27, tracker.getInTransit());
 
 		deposited(0);
@@ -204,8 +205,7 @@ public class SackTrackerTest
 	{
 		carrying(27);
 		prime();
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		for (int i = 0; i < 49; i++)
 		{
@@ -222,8 +222,7 @@ public class SackTrackerTest
 	{
 		carrying(60);
 		prime();
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		for (int i = 0; i < 40; i++)
 		{
@@ -259,8 +258,7 @@ public class SackTrackerTest
 		upgraded(true);
 		carrying(27);
 		prime();
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		tracker.reset();
 
@@ -282,8 +280,7 @@ public class SackTrackerTest
 		deposited(40);
 		carrying(30);
 		prime();
-		carrying(10);
-		tracker.refreshInventory(client);
+		deposit(10);
 
 		assertEquals(20, tracker.getInTransit());
 		assertEquals(70, tracker.getUsed());
@@ -295,8 +292,7 @@ public class SackTrackerTest
 		deposited(40);
 		carrying(30);
 		prime();
-		carrying(10);
-		tracker.refreshInventory(client);
+		deposit(10);
 
 		assertEquals(60, tracker.getCommitted());
 		assertEquals(70, tracker.getUsed());
@@ -320,8 +316,7 @@ public class SackTrackerTest
 		carrying(27);
 		prime();
 
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		assertTrue(tracker.isCommittedFull(SACK_SIZE));
 	}
@@ -375,8 +370,7 @@ public class SackTrackerTest
 
 		assertTrue("60 in the sack plus 48 carried fills it", tracker.isFull(SACK_SIZE));
 
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 		assertTrue(tracker.isFull(SACK_SIZE));
 	}
 
@@ -410,8 +404,7 @@ public class SackTrackerTest
 		prime();
 		assertFalse(tracker.isFullLoadTooBig(SACK_SIZE));
 
-		carrying(0);
-		tracker.refreshInventory(client);
+		deposit(0);
 
 		assertTrue("60 in the sack and 27 on the belt leave 21, less than 27", tracker.isFullLoadTooBig(SACK_SIZE));
 		assertFalse(tracker.isFull(SACK_SIZE));
@@ -427,5 +420,33 @@ public class SackTrackerTest
 
 		assertTrue(tracker.isFullLoadTooBig(80));
 		assertFalse(tracker.isFullLoadTooBig(SACK_SIZE));
+	}
+
+	@Test
+	public void payDirtLeavingWithoutADepositIsNotInTransit()
+	{
+		carrying(27);
+		prime();
+
+		carrying(20);
+		tracker.refreshInventory(client);
+
+		assertEquals(0, tracker.getInTransit());
+		assertEquals(20, tracker.getCarriedPayDirt());
+	}
+
+	@Test
+	public void aDepositOnlyCoversTheNextDrop()
+	{
+		carrying(27);
+		prime();
+		deposit(0);
+		carrying(5);
+		tracker.refreshInventory(client);
+
+		carrying(3);
+		tracker.refreshInventory(client);
+
+		assertEquals(27, tracker.getInTransit());
 	}
 }
