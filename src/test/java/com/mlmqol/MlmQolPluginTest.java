@@ -45,6 +45,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -90,6 +91,7 @@ public class MlmQolPluginTest
 	private Scene scene;
 
 	private MlmQolPlugin plugin;
+	private int otherItems;
 
 	@Before
 	public void setUp() throws Exception
@@ -167,6 +169,7 @@ public class MlmQolPluginTest
 	private void carrying(int payDirt)
 	{
 		when(inventory.count(ItemID.PAYDIRT)).thenReturn(payDirt);
+		when(inventory.count()).thenReturn(otherItems + payDirt);
 	}
 
 	private void inRegion(int region)
@@ -515,6 +518,67 @@ public class MlmQolPluginTest
 		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
 
 		verify(menu).removeMenuEntry(any());
+	}
+
+	@Test
+	public void aFullLoadThatWontFitBlocksMining()
+	{
+		when(config.blockOnFullLoad()).thenReturn(true);
+		otherItems = 1;
+		carrying(0);
+		enterMlm();
+		deposited(55);
+		sackVarbitChanged();
+		strandPayDirt(27);
+
+		MenuEntry entry = addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
+
+		verify(menu).removeMenuEntry(entry);
+	}
+
+	@Test
+	public void aFullLoadThatFitsKeepsMining()
+	{
+		when(config.blockOnFullLoad()).thenReturn(true);
+		otherItems = 1;
+		carrying(0);
+		enterMlm();
+		deposited(54);
+		sackVarbitChanged();
+		strandPayDirt(27);
+
+		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
+
+		verify(menu, never()).removeMenuEntry(any());
+	}
+
+	@Test
+	public void fullLoadBlockingIsOffByDefault()
+	{
+		otherItems = 1;
+		carrying(0);
+		enterMlm();
+		deposited(90);
+		sackVarbitChanged();
+
+		addMenuEntry("Mine", ObjectID.MOTHERLODE_ORE_SINGLE);
+
+		verify(menu, never()).removeMenuEntry(any());
+	}
+
+	@Test
+	public void aFullLoadThatWontFitIsAnnounced()
+	{
+		when(config.blockOnFullLoad()).thenReturn(true);
+		otherItems = 1;
+		carrying(0);
+		enterMlm();
+		deposited(90);
+		sackVarbitChanged();
+
+		ArgumentCaptor<QueuedMessage> message = ArgumentCaptor.forClass(QueuedMessage.class);
+		verify(chatMessageManager).queue(message.capture());
+		assertTrue(message.getValue().getRuneLiteFormattedMessage().contains("room for 18 more, less than a full load (27)"));
 	}
 
 	// ---- the two hopper conditions, each standing on its own ------------------------------------

@@ -11,6 +11,7 @@ class SackTracker
 {
 	static final int SACK_SIZE = 108;
 	static final int SACK_LARGE_SIZE = 189;
+	private static final int INVENTORY_SIZE = 28;
 	// Pay-dirt that leaves the inventory without reaching the sack (dropped) is written off after this.
 	private static final int IN_TRANSIT_STALE_TICKS = 50;
 
@@ -20,6 +21,8 @@ class SackTracker
 	private int capacity = SACK_SIZE;
 	@Getter
 	private int carriedPayDirt;
+	@Getter
+	private int fullLoad = INVENTORY_SIZE;
 	@Getter
 	private int inTransit;
 
@@ -49,6 +52,7 @@ class SackTracker
 		ItemContainer inventory = client.getItemContainer(InventoryID.INV);
 		int previous = carriedPayDirt;
 		carriedPayDirt = inventory == null ? 0 : inventory.count(ItemID.PAYDIRT);
+		fullLoad = inventory == null ? INVENTORY_SIZE : INVENTORY_SIZE - inventory.count() + carriedPayDirt;
 
 		if (primed && carriedPayDirt < previous)
 		{
@@ -76,6 +80,7 @@ class SackTracker
 		deposited = 0;
 		capacity = SACK_SIZE;
 		carriedPayDirt = 0;
+		fullLoad = INVENTORY_SIZE;
 		inTransit = 0;
 		ticksSinceArrival = 0;
 		primed = false;
@@ -104,5 +109,10 @@ class SackTracker
 	boolean isFull(int blockAt)
 	{
 		return getUsed() >= limit(blockAt);
+	}
+
+	boolean isFullLoadTooBig(int blockAt)
+	{
+		return getCommitted() + fullLoad > limit(blockAt);
 	}
 }

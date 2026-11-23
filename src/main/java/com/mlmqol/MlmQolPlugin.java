@@ -158,7 +158,7 @@ public class MlmQolPlugin extends Plugin
 				scanScene();
 			}
 			// Set silently before followCapacityUpgrade, whose config write re-evaluates it.
-			sackFull = inMlm && sackTracker.isFull(config.blockAtCount());
+			sackFull = inMlm && isSackFull();
 
 			sackTracker.refreshCapacity(client);
 			followCapacityUpgrade();
@@ -510,24 +510,43 @@ public class MlmQolPlugin extends Plugin
 			return;
 		}
 
-		int limit = sackTracker.limit(config.blockAtCount());
-		boolean full = sackTracker.isFull(config.blockAtCount());
+		boolean full = isSackFull();
 		if (full == sackFull)
 		{
 			return;
 		}
 
 		sackFull = full;
-		log.debug("Sack full: {} ({} deposited, {} on the belt, {} carried, limit {})", full,
-			sackTracker.getDeposited(), sackTracker.getInTransit(), sackTracker.getCarriedPayDirt(), limit);
+		int limit = sackTracker.limit(config.blockAtCount());
+		log.debug("Sack full: {} ({} deposited, {} on the belt, {} carried, full load {}, limit {})", full,
+			sackTracker.getDeposited(), sackTracker.getInTransit(), sackTracker.getCarriedPayDirt(),
+			sackTracker.getFullLoad(), limit);
 
-		if (config.warnInChat())
+		if (!config.warnInChat())
 		{
-			sendChatMessage(full
-				? "Sack limit reached (" + sackTracker.getUsed() + "/" + limit
-					+ ") - mining is blocked until you collect from the sack."
-				: "Your sack has room again - mining is re-enabled.");
+			return;
 		}
+
+		if (!full)
+		{
+			sendChatMessage("Your sack has room again - mining is re-enabled.");
+		}
+		else if (sackTracker.isFull(config.blockAtCount()))
+		{
+			sendChatMessage("Sack limit reached (" + sackTracker.getUsed() + "/" + limit
+				+ ") - mining is blocked until you collect from the sack.");
+		}
+		else
+		{
+			sendChatMessage("Sack only has room for " + (limit - sackTracker.getCommitted()) + " more, less than a full load ("
+				+ sackTracker.getFullLoad() + ") - mining is blocked until you collect from the sack.");
+		}
+	}
+
+	private boolean isSackFull()
+	{
+		int blockAt = config.blockAtCount();
+		return sackTracker.isFull(blockAt) || config.blockOnFullLoad() && sackTracker.isFullLoadTooBig(blockAt);
 	}
 
 	private void checkMiningStopped()

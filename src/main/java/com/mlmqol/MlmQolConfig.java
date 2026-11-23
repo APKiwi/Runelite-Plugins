@@ -13,6 +13,7 @@ public interface MlmQolConfig extends Config
 {
 	String BLOCK_MINING = "blockMining";
 	String BLOCK_AT_COUNT = "blockAtCount";
+	String BLOCK_ON_FULL_LOAD = "blockOnFullLoad";
 	String WARN_IN_CHAT = "warnInChat";
 	String BLOCK_DEPOSIT_WHEN_BLOCKED = "blockDepositWhenBlocked";
 	String HIGHLIGHT_BROKEN_STRUTS = "highlightBrokenStruts";
@@ -79,10 +80,23 @@ public interface MlmQolConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = BLOCK_ON_FULL_LOAD,
+		name = "Block when a full load won't fit",
+		description = "Also blocks mining once the sack plus your pay-dirt on the belt leave less room than a full "
+			+ "inventory of pay-dirt, counting your free slots",
+		position = 3,
+		section = SACK_SECTION
+	)
+	default boolean blockOnFullLoad()
+	{
+		return false;
+	}
+
+	@ConfigItem(
 		keyName = WARN_IN_CHAT,
 		name = "Warn in chat",
 		description = "Sends a chat message when the block count is reached and when the sack has room again",
-		position = 3,
+		position = 4,
 		section = SACK_SECTION
 	)
 	default boolean warnInChat()

@@ -26,6 +26,7 @@ public class SackTrackerTest
 	private Client client;
 	private ItemContainer inventory;
 	private SackTracker tracker;
+	private int otherItems;
 
 	@Before
 	public void setUp()
@@ -53,6 +54,7 @@ public class SackTrackerTest
 	private void carrying(int payDirt)
 	{
 		when(inventory.count(ItemID.PAYDIRT)).thenReturn(payDirt);
+		when(inventory.count()).thenReturn(otherItems + payDirt);
 	}
 
 	/** Puts the tracker in the state the plugin primes it into on entering the mine. */
@@ -407,5 +409,54 @@ public class SackTrackerTest
 		carrying(0);
 		tracker.refreshInventory(client);
 		assertTrue(tracker.isFull(SACK_SIZE));
+	}
+
+	@Test
+	public void fullLoadIsFreeSlotsPlusCarriedPayDirt()
+	{
+		otherItems = 2;
+		carrying(10);
+		prime();
+
+		assertEquals(26, tracker.getFullLoad());
+	}
+
+	@Test
+	public void aFullLoadThatFitsExactlyIsNotTooBig()
+	{
+		otherItems = 1;
+		deposited(81);
+		carrying(0);
+		prime();
+
+		assertFalse(tracker.isFullLoadTooBig(SACK_SIZE));
+	}
+
+	@Test
+	public void payDirtOnTheBeltCountsAgainstTheNextLoad()
+	{
+		otherItems = 1;
+		deposited(60);
+		carrying(27);
+		prime();
+		assertFalse(tracker.isFullLoadTooBig(SACK_SIZE));
+
+		carrying(0);
+		tracker.refreshInventory(client);
+
+		assertTrue("60 in the sack and 27 on the belt leave 21, less than 27", tracker.isFullLoadTooBig(SACK_SIZE));
+		assertFalse(tracker.isFull(SACK_SIZE));
+	}
+
+	@Test
+	public void fullLoadHonoursABlockCountBelowCapacity()
+	{
+		otherItems = 1;
+		deposited(60);
+		carrying(0);
+		prime();
+
+		assertTrue(tracker.isFullLoadTooBig(80));
+		assertFalse(tracker.isFullLoadTooBig(SACK_SIZE));
 	}
 }

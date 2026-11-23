@@ -12,10 +12,15 @@ the sack.
 Pay-dirt you're carrying and pay-dirt still travelling the conveyor belt both count, so mining stops
 the moment you empty a load into the hopper rather than seconds later when the belt catches up.
 
+**Block when a full load won't fit** stops you starting a load the sack can't take. It blocks once the
+sack plus your pay-dirt on the belt, plus a full inventory (your free slots, so 27 with a pickaxe in
+the inventory and 26 with a hammer too), would pass the block count.
+
 | Option | Default | Description |
 | --- | --- | --- |
 | Block mining when full | on | Removes the `Mine` option from ore veins once the sack reaches the block count |
 | Block at | 108 | Pay-dirt count to stop mining at |
+| Block when a full load won't fit | off | Also blocks once the sack and the belt leave less room than a full inventory of pay-dirt |
 | Warn in chat | on | Sends a chat message when the block count is reached and when the sack has room again |
 
 Sack capacity is 108, or 189 after buying the upgrade from Prospector Percy. **Block at** follows the
