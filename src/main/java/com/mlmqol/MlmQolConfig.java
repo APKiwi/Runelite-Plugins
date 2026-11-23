@@ -172,8 +172,8 @@ public interface MlmQolConfig extends Config
 	@ConfigItem(
 		keyName = SACK_FULL_NOTIFICATION,
 		name = "Sack full while mining",
-		description = "Notifies you when the sack reaches the block count while you're still mining with room "
-			+ "in your inventory, so you can stop",
+		description = "Notifies you when you're mining with the sack at the block count and room left in your "
+			+ "inventory, so you can stop",
 		position = 2,
 		section = NOTIFICATIONS_SECTION
 	)

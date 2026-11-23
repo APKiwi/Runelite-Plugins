@@ -1282,6 +1282,42 @@ public class MlmQolPluginTest
 	}
 
 	@Test
+	public void miningPastAFullLoadBlockNotifiesAtTheBlockCount()
+	{
+		when(config.blockOnFullLoad()).thenReturn(true);
+		otherItems = 2;
+		carrying(0);
+		enterMlm();
+		deposited(105);
+		sackVarbitChanged();
+		animating(MINING_ANIMATION);
+		tick(1);
+		verify(notifier, never()).notify(any(Notification.class), contains("sack is full"));
+
+		carrying(3);
+		inventoryChanged();
+
+		verify(notifier).notify(eq(Notification.ON), contains("sack is full"));
+	}
+
+	@Test
+	public void miningIntoAFullSackNotifiesOncePerSession()
+	{
+		enterMlm();
+		fillSack();
+		animating(MINING_ANIMATION);
+		tick(5);
+		verify(notifier, times(1)).notify(any(Notification.class), contains("sack is full"));
+
+		animating(IDLE_ANIMATION);
+		tick(IDLE_DELAY_TICKS);
+		animating(MINING_ANIMATION);
+		tick(1);
+
+		verify(notifier, times(2)).notify(any(Notification.class), contains("sack is full"));
+	}
+
+	@Test
 	public void aFullSackWhileNotMiningDoesNotNotify()
 	{
 		enterMlm();
